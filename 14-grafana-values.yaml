@@ -1,0 +1,27 @@
+# Helm values for Grafana.
+#
+# Blog: "Install Grafana" + "Enable persistent storage for Grafana"
+#
+# Differences from the blog:
+#   - persistence is enabled on the first install instead of a second helm upgrade
+#   - storage class is the Trident NFS backend of this cluster
+#   - the Service is exposed through MetalLB instead of port-forward only
+#
+# The Prometheus data source and the dashboard are added through the Grafana UI
+# like in the blog, so no datasources, dashboards or sidecar settings are needed.
+---
+persistence:
+  enabled: true
+  type: pvc
+  storageClassName: sc-clus2-nfs
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+
+service:
+  enabled: true
+  type: LoadBalancer
+  annotations:
+    metallb.io/address-pool: external-pool
+  port: 80
+  targetPort: 3000

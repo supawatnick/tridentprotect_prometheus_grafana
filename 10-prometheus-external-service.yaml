@@ -1,0 +1,37 @@
+# External access to Prometheus through MetalLB.
+#
+# URL: http://<EXTERNAL-IP>:9090
+# MetalLB pool: external-pool (10.10.110.101-10.10.110.120)
+# Status: TESTED (MetalLB assigned an available address automatically)
+#
+# This is a separate Service because prometheus-operated is managed by the
+# Prometheus Operator and should not be modified directly.
+# Prometheus has no built-in authentication. Restrict network access in
+# production or place an authenticated reverse proxy in front of this Service.
+#
+# Verify after apply:
+#   kubectl -n prometheus get service prometheus-external
+#   kubectl -n prometheus get endpoints prometheus-external
+# Open http://<EXTERNAL-IP>:9090/targets and verify kube-state-metrics is UP.
+#
+# For k8s-clus2 use 10-prometheus-external-service-clus2.yaml because the
+# MetalLB pool there is named ai-pool (10.10.110.121-140) instead of
+# external-pool (10.10.110.101-120).
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-external
+  namespace: prometheus
+  annotations:
+    metallb.io/address-pool: external-pool
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: prometheus
+    operator.prometheus.io/name: prometheus
+  ports:
+    - name: web
+      port: 9090
+      targetPort: web
+      protocol: TCP

@@ -1,0 +1,32 @@
+# Prometheus ServiceMonitor for Trident CSI metrics.
+#
+# Blog: "Create a Prometheus ServiceMonitor for Trident metrics"
+#   "we create another Prometheus ServiceMonitor that watches the trident-csi
+#    service and listens on the metrics port"
+#
+# Target in this cluster:
+#   Service    trident/trident-csi
+#   Labels     app=controller.csi.trident.netapp.io
+#   Port       metrics = 9220 -> targetPort 8001
+#
+# The Prometheus CR uses serviceMonitorSelector: {} so this ServiceMonitor is
+# picked up automatically.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: trident-sm
+  namespace: prometheus
+  labels:
+    release: prom-operator
+spec:
+  jobLabel: trident
+  selector:
+    matchLabels:
+      app: controller.csi.trident.netapp.io
+  namespaceSelector:
+    matchNames:
+      - trident
+  endpoints:
+    - port: metrics
+      interval: 15s

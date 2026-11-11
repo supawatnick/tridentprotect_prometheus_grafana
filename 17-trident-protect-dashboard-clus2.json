@@ -1,0 +1,2999 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "ภาพรวมสถานะ Trident Protect ใน cluster: Backup, Snapshot, AppVault และ AppMirrorRelationship\nข้อมูลมาจาก kube-state-metrics ผ่าน Prometheus Operator\n\nหมายเหตุ: metric ของ KSM ไม่มี label ของ namespace ของ CR จึงกรองตาม namespace ของ application ไม่ได้\nมีได้แค่ label appReference ซึ่งใช้ในตัวแปร Application ด้านบน",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Open Prometheus (k8s-clus2)",
+      "tooltip": "",
+      "type": "link",
+      "url": "http://10.10.110.121:9090"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "Trident Protect Summary",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "จำนวน Backup CR ทั้งหมดที่มีอยู่ใน cluster กรองตาม Application ที่เลือกในตัวแปร app",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_backup_info{appReference=~\"$app\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "Total Backups",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "จำนวน Snapshot CR ทั้งหมดที่มีอยู่ใน cluster กรองตาม Application ที่เลือกในตัวแปร app",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_snapshot_info{appReference=~\"$app\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "Total Snapshots",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Backup ที่อยู่ในสถานะ Error ถ้ามีค่ามากกว่า 0 จะแสดงสีแดง ใช้ query นี้แบบ or vector(0) เพื่อให้แสดง 0 แทน No data",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_backup_info{status=\"Error\",appReference=~\"$app\"}) or vector(0)",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "Failed Backups",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Snapshot ที่อยู่ในสถานะ Error ถ้ามีค่ามากกว่า 0 จะแสดงสีแดง",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_snapshot_info{status=\"Error\",appReference=~\"$app\"}) or vector(0)",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "Failed Snapshots",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Backup ที่กำลังทำงานอยู่ ถ้ามีค่ามากกว่า 0 จะแสดงสีเหลือง",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 1
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_backup_info{status=\"Running\"}) or vector(0)",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "Running Backups",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "AppVault ที่พร้อมใช้งาน กรองตามตัวแปร vault",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 1
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_appvault_info{state=\"Available\",appvault_name=~\"$vault\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AppVaults Available",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "AppVault ที่เข้าถึง object storage ไม่ได้ หรือมี error ถ้ามีค่ามากกว่า 0 จะแสดงสีแดง",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 1
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_appvault_info{state=\"Error\"}) or vector(0)",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AppVaults in Error",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "AppMirrorRelationship ที่ replication ตั้งค่าไว้เรียบร้อยแล้ว",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_app_mirror_relationship_info{state=\"Established\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AMR Established",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 101,
+      "panels": [],
+      "title": "Status Breakdown",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "แจกแจงจำนวน Backup ตามค่า status (Completed, Error, Running)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 6
+      },
+      "id": 9,
+      "options": {
+        "displayLabels": [],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count by (status) (kube_customresource_backup_info{appReference=~\"$app\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "Backups by status",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "แจกแจงจำนวน Snapshot ตามค่า status (Completed, Error, Running)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 6
+      },
+      "id": 10,
+      "options": {
+        "displayLabels": [],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count by (status) (kube_customresource_snapshot_info{appReference=~\"$app\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "Snapshots by status",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "แจกแจงจำนวน AppVault ตามค่า state (Available, Error)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 6
+      },
+      "id": 11,
+      "options": {
+        "displayLabels": [],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count by (state) (kube_customresource_appvault_info{appvault_name=~\"$vault\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AppVaults by state",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "แจกแจงจำนวน AppMirrorRelationship ตามค่า state (Established, Establishing, Error)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "id": 12,
+      "options": {
+        "displayLabels": [],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count by (state) (kube_customresource_app_mirror_relationship_info)",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AMR by state",
+      "type": "piechart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 102,
+      "panels": [],
+      "title": "Growth Over Time",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "จำนวน Backup CR ที่มีอยู่ในแต่ละช่วงเวลา แสดงการสะสมของ Backup ที่ถูกสร้างใน cluster",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_backup_info{appReference=~\"$app\"})",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Backups over time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "จำนวน Snapshot CR ที่มีอยู่ในแต่ละช่วงเวลา แสดงการสะสมของ Snapshot ที่ถูกสร้างใน cluster",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_snapshot_info{appReference=~\"$app\"})",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Snapshots over time",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 103,
+      "panels": [],
+      "title": "Per Application",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "จำนวน Backup ของแต่ละ Application ที่มี label appReference",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "id": 15,
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count by (appReference) (kube_customresource_backup_info)",
+          "instant": true,
+          "legendFormat": "{{appReference}}",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "Backups per application",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "จำนวน Snapshot ของแต่ละ Application ที่มี label appReference",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "id": 16,
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count by (appReference) (kube_customresource_snapshot_info)",
+          "instant": true,
+          "legendFormat": "{{appReference}}",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "Snapshots per application",
+      "type": "bargauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "id": 104,
+      "panels": [],
+      "title": "Details",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "รายการ Backup ล่าสุด 10 รายการ เรียงตาม creation_time ใหม่สุด คลิกที่ชื่อ panel เพื่อเปิด Explore ใน Prometheus ได้",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Completed": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Available": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Established": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Running": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Promoting": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Error": {
+                        "color": "dark-red",
+                        "index": 2
+                      },
+                      "Failed": {
+                        "color": "dark-red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 17,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Explore in Prometheus",
+          "type": "link",
+          "url": "/explore?left={\"datasource\":\"${DS_PROMETHEUS}\",\"queries\":[{\"expr\":\"kube_customresource_backup_info\"}],\"range\":{\"from\":\"now-24h\",\"to\":\"now\"}}"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "kube_customresource_backup_info",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "Latest Backups",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "creation_time": false,
+              "appReference": false,
+              "backup_name": false,
+              "status": false,
+              "appVaultReference": false,
+              "__name__": true,
+              "backup_uid": true,
+              "container": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "service": true,
+              "Time": true,
+              "Value": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "creation_time": 0,
+              "appReference": 1,
+              "backup_name": 2,
+              "status": 3,
+              "appVaultReference": 4,
+              "__name__": 5,
+              "backup_uid": 6,
+              "container": 7,
+              "customresource_group": 8,
+              "customresource_kind": 9,
+              "customresource_version": 10,
+              "endpoint": 11,
+              "instance": 12,
+              "job": 13,
+              "namespace": 14,
+              "pod": 15,
+              "service": 16,
+              "Time": 17,
+              "Value": 18
+            },
+            "renameByName": {
+              "creation_time": "Date",
+              "appReference": "Application",
+              "backup_name": "Backup",
+              "status": "Status",
+              "appVaultReference": "AppVault"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": true,
+                "field": "Date"
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 10
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "รายการ Snapshot ล่าสุด 10 รายการ เรียงตาม creation_time ใหม่สุด",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Completed": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Available": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Established": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Running": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Promoting": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Error": {
+                        "color": "dark-red",
+                        "index": 2
+                      },
+                      "Failed": {
+                        "color": "dark-red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "id": 18,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Explore in Prometheus",
+          "type": "link",
+          "url": "/explore?left={\"datasource\":\"${DS_PROMETHEUS}\",\"queries\":[{\"expr\":\"kube_customresource_snapshot_info\"}],\"range\":{\"from\":\"now-24h\",\"to\":\"now\"}}"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "kube_customresource_snapshot_info",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "Latest Snapshots",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "creation_time": false,
+              "appReference": false,
+              "snapshot_name": false,
+              "status": false,
+              "appVaultReference": false,
+              "__name__": true,
+              "container": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "service": true,
+              "snapshot_uid": true,
+              "Time": true,
+              "Value": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "creation_time": 0,
+              "appReference": 1,
+              "snapshot_name": 2,
+              "status": 3,
+              "appVaultReference": 4,
+              "__name__": 5,
+              "container": 6,
+              "customresource_group": 7,
+              "customresource_kind": 8,
+              "customresource_version": 9,
+              "endpoint": 10,
+              "instance": 11,
+              "job": 12,
+              "namespace": 13,
+              "pod": 14,
+              "service": 15,
+              "snapshot_uid": 16,
+              "Time": 17,
+              "Value": 18
+            },
+            "renameByName": {
+              "creation_time": "Date",
+              "appReference": "Application",
+              "snapshot_name": "Snapshot",
+              "status": "Status",
+              "appVaultReference": "AppVault"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": true,
+                "field": "Date"
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 10
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "รายการ AppVault ทั้งหมด พร้อม error และ message เพื่อดูสาเหตุที่เข้าถึง object storage ไม่ได้",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Completed": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Available": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Established": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Running": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Promoting": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Error": {
+                        "color": "dark-red",
+                        "index": 2
+                      },
+                      "Failed": {
+                        "color": "dark-red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "id": 19,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Explore in Prometheus",
+          "type": "link",
+          "url": "/explore?left={\"datasource\":\"${DS_PROMETHEUS}\",\"queries\":[{\"expr\":\"kube_customresource_appvault_info\"}],\"range\":{\"from\":\"now-24h\",\"to\":\"now\"}}"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "kube_customresource_appvault_info",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "AppVaults",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "appvault_name": false,
+              "state": false,
+              "error": false,
+              "message": false,
+              "__name__": true,
+              "appvault_uid": true,
+              "container": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "service": true,
+              "Time": true,
+              "Value": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "appvault_name": 0,
+              "state": 1,
+              "error": 2,
+              "message": 3,
+              "__name__": 4,
+              "appvault_uid": 5,
+              "container": 6,
+              "customresource_group": 7,
+              "customresource_kind": 8,
+              "customresource_version": 9,
+              "endpoint": 10,
+              "instance": 11,
+              "job": 12,
+              "namespace": 13,
+              "pod": 14,
+              "service": 15,
+              "Time": 16,
+              "Value": 17
+            },
+            "renameByName": {
+              "appvault_name": "AppVault",
+              "state": "State",
+              "error": "Error",
+              "message": "Message"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": true,
+                "field": "AppVault"
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 10
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "รายละเอียดการตั้งค่า AppMirrorRelationship: AppVault ต้นทางและปลาย, StorageClass ที่ปลายทางใช้, กฎการทำซ้ำ และการ map namespace",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "id": 20,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Explore in Prometheus",
+          "type": "link",
+          "url": "/explore?left={\"datasource\":\"${DS_PROMETHEUS}\",\"queries\":[{\"expr\":\"kube_customresource_app_mirror_relationship_info{amr_name=~\\\"$amr\\\"}\"}],\"range\":{\"from\":\"now-24h\",\"to\":\"now\"}}"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "kube_customresource_app_mirror_relationship_info{amr_name=~\"$amr\"}",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "AMR Configuration",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "amr_name": false,
+              "sourceApplicationName": false,
+              "sourceAppVaultRef": false,
+              "destinationAppVaultRef": false,
+              "storageClassName": false,
+              "recurrenceRule": false,
+              "destinationNamespaces": false,
+              "namespaceMapping": false,
+              "__name__": true,
+              "amr_uid": true,
+              "conditions": true,
+              "container": true,
+              "creation_time": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "desiredState": true,
+              "destinationApplicationRef": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "lastTransferCompletionTimestamp": true,
+              "lastTransferStartTimestamp": true,
+              "lastTransferredSnapshotCompletionTimestamp": true,
+              "lastTransferredSnapshotName": true,
+              "namespace": true,
+              "pod": true,
+              "service": true,
+              "sourceApplicationUID": true,
+              "state": true,
+              "Time": true,
+              "Value": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "amr_name": 0,
+              "sourceApplicationName": 1,
+              "sourceAppVaultRef": 2,
+              "destinationAppVaultRef": 3,
+              "storageClassName": 4,
+              "recurrenceRule": 5,
+              "destinationNamespaces": 6,
+              "namespaceMapping": 7,
+              "__name__": 8,
+              "amr_uid": 9,
+              "conditions": 10,
+              "container": 11,
+              "creation_time": 12,
+              "customresource_group": 13,
+              "customresource_kind": 14,
+              "customresource_version": 15,
+              "desiredState": 16,
+              "destinationApplicationRef": 17,
+              "endpoint": 18,
+              "instance": 19,
+              "job": 20,
+              "lastTransferCompletionTimestamp": 21,
+              "lastTransferStartTimestamp": 22,
+              "lastTransferredSnapshotCompletionTimestamp": 23,
+              "lastTransferredSnapshotName": 24,
+              "namespace": 25,
+              "pod": 26,
+              "service": 27,
+              "sourceApplicationUID": 28,
+              "state": 29,
+              "Time": 30,
+              "Value": 31
+            },
+            "renameByName": {
+              "amr_name": "Relationship",
+              "sourceApplicationName": "Source App",
+              "sourceAppVaultRef": "Source Vault",
+              "destinationAppVaultRef": "Dest Vault",
+              "storageClassName": "Storage Class",
+              "recurrenceRule": "Recurrence",
+              "destinationNamespaces": "Dest Namespace",
+              "namespaceMapping": "Namespace Mapping"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": true,
+                "field": "Relationship"
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 10
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 105,
+      "panels": [],
+      "title": "AppMirrorRelationship Detail",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "จำนวน AppMirrorRelationship ทั้งหมด กรองตามตัวแปร amr",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 43
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_app_mirror_relationship_info{amr_name=~\"$amr\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AMRs Total",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "AMR ที่ replication ตั้งค่าไว้เรียบร้อยและพร้อมทำงาน",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 43
+      },
+      "id": 22,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_app_mirror_relationship_info{state=\"Established\",amr_name=~\"$amr\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AMRs Established",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "AMR ที่ยังไม่พร้อมใช้งาน เช่น Establishing, Promoting หรือ Error ถ้ามีค่ามากกว่า 0 จะแสดงสีแดง",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 43
+      },
+      "id": 23,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_app_mirror_relationship_info{state!=\"Established\",amr_name=~\"$amr\"}) or vector(0)",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AMRs Not Established",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "AMR ที่ถูก promote ให้เป็นปลายทางจริงแล้ว (desiredState = Promoted) ถ้ามีค่ามากกว่า 0 จะแสดงสีเหลือง",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 43
+      },
+      "id": 24,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count(kube_customresource_app_mirror_relationship_info{desiredState=\"Promoted\",amr_name=~\"$amr\"}) or vector(0)",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AMRs Promoted",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "แจกแจงจำนวน AMR ตามค่า desiredState (Established, Promoted)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "id": 25,
+      "options": {
+        "displayLabels": [],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "count by (desiredState) (kube_customresource_app_mirror_relationship_info{amr_name=~\"$amr\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "AMRs by Desired State",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "เวลาเริ่มและจบของการ transfer ล่าสุด และชื่อ snapshot ที่ถูกโอน พร้อมเวลาที่ snapshot สำเร็จ",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Completed": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Available": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Established": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Running": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Promoting": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Error": {
+                        "color": "dark-red",
+                        "index": 2
+                      },
+                      "Failed": {
+                        "color": "dark-red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 26,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Explore in Prometheus",
+          "type": "link",
+          "url": "/explore?left={\"datasource\":\"${DS_PROMETHEUS}\",\"queries\":[{\"expr\":\"kube_customresource_app_mirror_relationship_info{amr_name=~\\\"$amr\\\"}\"}],\"range\":{\"from\":\"now-24h\",\"to\":\"now\"}}"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "kube_customresource_app_mirror_relationship_info{amr_name=~\"$amr\"}",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "AMR Transfer Detail",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "amr_name": false,
+              "lastTransferStartTimestamp": false,
+              "lastTransferCompletionTimestamp": false,
+              "lastTransferredSnapshotName": false,
+              "lastTransferredSnapshotCompletionTimestamp": false,
+              "state": false,
+              "__name__": true,
+              "amr_uid": true,
+              "conditions": true,
+              "container": true,
+              "creation_time": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "desiredState": true,
+              "destinationAppVaultRef": true,
+              "destinationApplicationRef": true,
+              "destinationNamespaces": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "namespaceMapping": true,
+              "pod": true,
+              "recurrenceRule": true,
+              "service": true,
+              "sourceAppVaultRef": true,
+              "sourceApplicationName": true,
+              "sourceApplicationUID": true,
+              "storageClassName": true,
+              "Time": true,
+              "Value": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "amr_name": 0,
+              "lastTransferStartTimestamp": 1,
+              "lastTransferCompletionTimestamp": 2,
+              "lastTransferredSnapshotName": 3,
+              "lastTransferredSnapshotCompletionTimestamp": 4,
+              "state": 5,
+              "__name__": 6,
+              "amr_uid": 7,
+              "conditions": 8,
+              "container": 9,
+              "creation_time": 10,
+              "customresource_group": 11,
+              "customresource_kind": 12,
+              "customresource_version": 13,
+              "desiredState": 14,
+              "destinationAppVaultRef": 15,
+              "destinationApplicationRef": 16,
+              "destinationNamespaces": 17,
+              "endpoint": 18,
+              "instance": 19,
+              "job": 20,
+              "namespace": 21,
+              "namespaceMapping": 22,
+              "pod": 23,
+              "recurrenceRule": 24,
+              "service": 25,
+              "sourceAppVaultRef": 26,
+              "sourceApplicationName": 27,
+              "sourceApplicationUID": 28,
+              "storageClassName": 29,
+              "Time": 30,
+              "Value": 31
+            },
+            "renameByName": {
+              "amr_name": "Relationship",
+              "lastTransferStartTimestamp": "Transfer Start",
+              "lastTransferCompletionTimestamp": "Transfer End",
+              "lastTransferredSnapshotName": "Last Snapshot",
+              "lastTransferredSnapshotCompletionTimestamp": "Snapshot Done",
+              "state": "State"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": true,
+                "field": "Transfer End"
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 10
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "เงื่อนไขทั้งหมดของ AMR ที่ operator รายงาน ใช้ตรวจว่า transfer สำเร็จและ recurrence rule ถูกต้อง",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Completed": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Available": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Established": {
+                        "color": "dark-green",
+                        "index": 0
+                      },
+                      "Running": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Promoting": {
+                        "color": "super-light-yellow",
+                        "index": 1
+                      },
+                      "Error": {
+                        "color": "dark-red",
+                        "index": 2
+                      },
+                      "Failed": {
+                        "color": "dark-red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "id": 27,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Explore in Prometheus",
+          "type": "link",
+          "url": "/explore?left={\"datasource\":\"${DS_PROMETHEUS}\",\"queries\":[{\"expr\":\"kube_customresource_app_mirror_relationship_info{amr_name=~\\\"$amr\\\"}\"}],\"range\":{\"from\":\"now-24h\",\"to\":\"now\"}}"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "kube_customresource_app_mirror_relationship_info{amr_name=~\"$amr\"}",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "AMR Conditions",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "amr_name": false,
+              "state": false,
+              "desiredState": false,
+              "conditions": false,
+              "creation_time": false,
+              "__name__": true,
+              "amr_uid": true,
+              "container": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "destinationAppVaultRef": true,
+              "destinationApplicationRef": true,
+              "destinationNamespaces": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "lastTransferCompletionTimestamp": true,
+              "lastTransferStartTimestamp": true,
+              "lastTransferredSnapshotCompletionTimestamp": true,
+              "lastTransferredSnapshotName": true,
+              "namespace": true,
+              "namespaceMapping": true,
+              "pod": true,
+              "recurrenceRule": true,
+              "service": true,
+              "sourceAppVaultRef": true,
+              "sourceApplicationName": true,
+              "sourceApplicationUID": true,
+              "storageClassName": true,
+              "Time": true,
+              "Value": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "amr_name": 0,
+              "state": 1,
+              "desiredState": 2,
+              "conditions": 3,
+              "creation_time": 4,
+              "__name__": 5,
+              "amr_uid": 6,
+              "container": 7,
+              "customresource_group": 8,
+              "customresource_kind": 9,
+              "customresource_version": 10,
+              "destinationAppVaultRef": 11,
+              "destinationApplicationRef": 12,
+              "destinationNamespaces": 13,
+              "endpoint": 14,
+              "instance": 15,
+              "job": 16,
+              "lastTransferCompletionTimestamp": 17,
+              "lastTransferStartTimestamp": 18,
+              "lastTransferredSnapshotCompletionTimestamp": 19,
+              "lastTransferredSnapshotName": 20,
+              "namespace": 21,
+              "namespaceMapping": 22,
+              "pod": 23,
+              "recurrenceRule": 24,
+              "service": 25,
+              "sourceAppVaultRef": 26,
+              "sourceApplicationName": 27,
+              "sourceApplicationUID": 28,
+              "storageClassName": 29,
+              "Time": 30,
+              "Value": 31
+            },
+            "renameByName": {
+              "amr_name": "Relationship",
+              "state": "State",
+              "desiredState": "Desired State",
+              "conditions": "Conditions",
+              "creation_time": "Created"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": true,
+                "field": "Relationship"
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 10
+          }
+        }
+      ],
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "trident-protect",
+    "trident",
+    "netapp"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Prometheus",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values({__name__=~\"kube_customresource_(backup|snapshot)_info\"}, appReference)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Application",
+        "multi": true,
+        "name": "app",
+        "options": [],
+        "query": {
+          "query": "label_values({__name__=~\"kube_customresource_(backup|snapshot)_info\"}, appReference)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values(kube_customresource_app_mirror_relationship_info, amr_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Relationship",
+        "multi": true,
+        "name": "amr",
+        "options": [],
+        "query": {
+          "query": "label_values(kube_customresource_app_mirror_relationship_info, amr_name)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values(kube_customresource_appvault_info, appvault_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "AppVault",
+        "multi": true,
+        "name": "vault",
+        "options": [],
+        "query": {
+          "query": "label_values(kube_customresource_appvault_info, appvault_name)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Trident Protect Overview",
+  "uid": "trident-protect-overview",
+  "version": 1,
+  "weekStart": ""
+}

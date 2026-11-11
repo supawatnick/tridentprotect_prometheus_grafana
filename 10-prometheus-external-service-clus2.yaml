@@ -1,0 +1,27 @@
+# External access to Prometheus through MetalLB on k8s-clus2.
+#
+# Same as 10-prometheus-external-service.yaml but with the MetalLB pool that
+# exists on k8s-clus2.
+#
+# clus1 pool: external-pool = 10.10.110.101-10.10.110.120
+# clus2 pool: ai-pool       = 10.10.110.121-10.10.110.140  (no overlap)
+#
+# The address is assigned automatically and is not locked in this manifest.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-external
+  namespace: prometheus
+  annotations:
+    metallb.io/address-pool: ai-pool
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: prometheus
+    operator.prometheus.io/name: prometheus
+  ports:
+    - name: web
+      port: 9090
+      targetPort: web
+      protocol: TCP

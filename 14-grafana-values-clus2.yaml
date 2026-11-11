@@ -1,0 +1,25 @@
+# Helm values for Grafana on k8s-clus2.
+#
+# Same as 14-grafana-values.yaml with the values that are specific to this cluster:
+#
+#   persistence.storageClassName          sc-clus1-nfs  -> sc-clus2-nfs
+#   service annotation metalb pool        external-pool -> ai-pool
+#
+# clus1 pool: external-pool = 10.10.110.101-10.10.110.120
+# clus2 pool: ai-pool       = 10.10.110.121-10.10.110.140  (no overlap)
+---
+persistence:
+  enabled: true
+  type: pvc
+  storageClassName: sc-clus2-nfs
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+
+service:
+  enabled: true
+  type: LoadBalancer
+  annotations:
+    metallb.io/address-pool: ai-pool
+  port: 80
+  targetPort: 3000

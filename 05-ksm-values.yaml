@@ -1,0 +1,201 @@
+# ค่า kube-state-metrics — ให้อ่าน Custom Resource ของ Trident Protect
+#
+# ใช้กับ (คำสั่งตามบทความ):
+#   helm install trident-protect -f 05-ksm-values.yaml \
+#     prometheus-community/kube-state-metrics --version 5.21.0 -n prometheus
+#
+# บทความ: "Install and configure kube-state-metrics" (metrics-config-backup-snapshot-hooks.yaml)
+#          + "AppVault metrics and error details" + "AppMirrorRelationship metrics"
+#
+# ผลที่ได้จาก release ชื่อ "trident-protect":
+#   Service        trident-protect-kube-state-metrics
+#   ServiceMonitor trident-protect-kube-state-metrics
+#   ConfigMap      trident-protect-kube-state-metrics-customresourcestate-config
+#
+# ⚠️ PRODUCTION: ไฟล์นี้ไม่ต้องแก้ — เป็นชนิด CR ของ Trident Protect ที่กำหนดตายตัว
+#    (ยกเว้น namespace/ชื่อ release ในคำสั่ง helm ด้านบน
+#     ซึ่งต้องตรงกับชื่อ service ที่เอาไปอ้างในไฟล์อื่น)
+# ---------------------------------------------------------------------------
+# จุดที่แก้จากตัวอย่างในเอกสาร/บล็อก
+#
+#  1. เพิ่ม label `status` (+ `error`) ให้ Backup — ไม่งั้น alert ตัวอย่างของ
+#     เอกสาร (BackupFailed) จะไม่มีวัน firing เพราะไม่มี label ให้ filter
+#  2. kind ของ ExecHooksRun ต้องเป็น `ExecHooksRun` (บล็อกพิมพ์ผิด)
+#  3. ไม่ใช้ `metricsFromPath` — ไม่มี field นี้ใน KSM ทุกเวอร์ชัน
+# ---------------------------------------------------------------------------
+
+# เก็บเฉพาะ metric ของ custom resource (ไม่เอา deployment/pod ฯลฯ)
+extraArgs:
+  - --custom-resource-state-only=true
+
+customResourceState:
+  enabled: true
+  config:
+    kind: CustomResourceStateMetrics
+    spec:
+      resources:
+
+        # -------------------------------------------------------------------
+        # Backup CR — ใช้ทำ alert BackupFailed
+        # metric ที่ได้: kube_customresource_backup_info
+        # -------------------------------------------------------------------
+        - groupVersionKind:
+            group: protect.trident.netapp.io
+            kind: "Backup"
+            version: "v1"
+          labelsFromPath:
+            backup_uid: [metadata, uid]
+            backup_name: [metadata, name]
+            creation_time: [metadata, creationTimestamp]
+          metrics:
+            - name: backup_info
+              help: "Exposes details about the Backup state"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    appVaultReference: ["spec", "appVaultRef"]
+                    appReference: ["spec", "applicationRef"]
+                    status: ["status", "state"]
+                    error: ["status", "error"]
+
+        # -------------------------------------------------------------------
+        # Snapshot CR
+        # metric ที่ได้: kube_customresource_snapshot_info
+        # -------------------------------------------------------------------
+        - groupVersionKind:
+            group: protect.trident.netapp.io
+            kind: "Snapshot"
+            version: "v1"
+          labelsFromPath:
+            snapshot_uid: [metadata, uid]
+            snapshot_name: [metadata, name]
+            creation_time: [metadata, creationTimestamp]
+          metrics:
+            - name: snapshot_info
+              help: "Exposes details about the Snapshot state"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    appVaultReference: ["spec", "appVaultRef"]
+                    appReference: ["spec", "applicationRef"]
+                    status: ["status", "state"]
+                    error: ["status", "error"]
+
+        # -------------------------------------------------------------------
+        # ExecHooksRun CR — kind ต้องเป็น ExecHooksRun (ไม่ใช่ Exechooksruns)
+        # metric ที่ได้: kube_customresource_ehr_info
+        # -------------------------------------------------------------------
+        - groupVersionKind:
+            group: protect.trident.netapp.io
+            kind: "ExecHooksRun"
+            version: "v1"
+          labelsFromPath:
+            ehr_uid: [metadata, uid]
+            ehr_name: [metadata, name]
+            creation_time: [metadata, creationTimestamp]
+          metrics:
+            - name: ehr_info
+              help: "Exposes details about the Exec Hook state"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    appVaultReference: ["spec", "appVaultRef"]
+                    appReference: ["spec", "applicationRef"]
+                    stage: ["spec", "stage"]
+                    action: ["spec", "action"]
+                    status: ["status", "state"]
+                    error: ["status", "error"]
+
+        # -------------------------------------------------------------------
+        # AppVault CR — เก็บ error/message ไว้หาสาเหตุไม่ได้เข้าถึง bucket
+        # metric ที่ได้: kube_customresource_appvault_info
+        # -------------------------------------------------------------------
+        - groupVersionKind:
+            group: protect.trident.netapp.io
+            kind: "AppVault"
+            version: "v1"
+          labelsFromPath:
+            appvault_uid: [metadata, uid]
+            appvault_name: [metadata, name]
+          metrics:
+            - name: appvault_info
+              help: "Exposes details about the AppVault state"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    state: ["status", "state"]
+                    error: ["status", "error"]
+                    message: ["status", "message"]
+
+        # -------------------------------------------------------------------
+        # AppMirrorRelationship CR — replication (SVM อีกเครื่อง)
+        # metric ที่ได้: kube_customresource_app_mirror_relationship_info
+        # -------------------------------------------------------------------
+        - groupVersionKind:
+            group: protect.trident.netapp.io
+            kind: "AppMirrorRelationship"
+            version: "v1"
+          labelsFromPath:
+            amr_uid: [metadata, uid]
+            amr_name: [metadata, name]
+            creation_time: [metadata, creationTimestamp]
+          metrics:
+            - name: app_mirror_relationship_info
+              help: "Exposes details about the AppMirrorRelationship state"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    desiredState: ["spec", "desiredState"]
+                    sourceAppVaultRef: ["spec", "sourceAppVaultRef"]
+                    destinationAppVaultRef: ["spec", "destinationAppVaultRef"]
+                    sourceApplicationName: ["spec", "sourceApplicationName"]
+                    sourceApplicationUID: ["spec", "sourceApplicationUID"]
+                    recurrenceRule: ["spec", "recurrenceRule"]
+                    storageClassName: ["spec", "storageClassName"]
+                    state: ["status", "state"]
+                    error: ["status", "error"]
+                    lastTransferStartTimestamp: ["status", "lastTransfer", "startTimestamp"]
+                    lastTransferCompletionTimestamp: ["status", "lastTransfer", "completionTimestamp"]
+                    lastTransferredSnapshotName: ["status", "lastTransferredSnapshot", "name"]
+                    lastTransferredSnapshotCompletionTimestamp: ["status", "lastTransferredSnapshot", "completionTimestamp"]
+                    destinationApplicationRef: ["status", "destinationApplicationRef"]
+                    destinationNamespaces: ["status", "destinationNamespaces"]
+                    promotedSnapshot: ["spec", "promotedSnapshot"]
+                    namespaceMapping: ["spec", "namespaceMapping"]
+                    conditions: ["status", "conditions"]
+
+# KSM ต้องอ่าน CR เหล่านี้ได้ (list/watch ทุก namespace)
+rbac:
+  extraRules:
+    - apiGroups: ["protect.trident.netapp.io"]
+      resources: ["backups"]
+      verbs: ["list", "watch"]
+    - apiGroups: ["protect.trident.netapp.io"]
+      resources: ["snapshots"]
+      verbs: ["list", "watch"]
+    - apiGroups: ["protect.trident.netapp.io"]
+      resources: ["exechooksruns"]
+      verbs: ["list", "watch"]
+    - apiGroups: ["protect.trident.netapp.io"]
+      resources: ["appvaults"]
+      verbs: ["list", "watch"]
+    - apiGroups: ["protect.trident.netapp.io"]
+      resources: ["appmirrorrelationships"]
+      verbs: ["list", "watch"]
+
+# เก็บ metric จากทุก namespace (CR ของ Trident Protect อยู่ใน ns ของ app)
+namespaces: ""
+
+# ให้ Prometheus มาดึงผ่าน ServiceMonitor
+prometheus:
+  monitor:
+    enabled: true
+    additionalLabels:
+      # ⚠️ PRODUCTION: ต้องตรงกับ spec.serviceMonitorSelector ของ Prometheus ที่ใช้
+      #    (ถ้าเป็น {} → ค่านี้ไม่มีผล / ถ้าเป็น matchLabels → ต้องเปลี่ยนให้ตรง)
+      release: prometheus

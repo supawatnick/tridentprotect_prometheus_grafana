@@ -1,0 +1,29 @@
+# Prometheus CR
+#
+# บทความ: "Deploy Prometheus" (prometheus.yaml) + "Configure the monitoring tools to work together" (prometheus-ksm.yaml)
+#
+# namespace : prometheus
+# Status    : TESTED (`scrapeInterval: 15s` validated by server dry-run)
+#
+# ⚠️ PRODUCTION:
+#   - เปลี่ยน namespace ให้ตรงกับที่ใช้จริง
+#   - spec.serviceAccountName ต้องตรงกับ SA ในไฟล์ 07-prometheus-rbac.yaml
+#
+# ต้องมี Prometheus CRD ก่อน → รัน 02-prometheus-crd.md ก่อนไฟล์นี้
+#
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+  namespace: prometheus
+spec:
+  serviceAccountName: prometheus
+  scrapeInterval: 15s
+  serviceMonitorNamespaceSelector: {}
+  serviceMonitorSelector: {}
+  podMonitorSelector: {}
+
+  resources:
+    requests:
+      memory: 400Mi

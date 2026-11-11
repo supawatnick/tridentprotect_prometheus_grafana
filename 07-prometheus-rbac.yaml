@@ -1,0 +1,70 @@
+# สิทธิ์ RBAC ของ Prometheus — ให้ Prometheus ไปดึง metric จาก Kubernetes API
+#
+# บทความ: "RBAC permissions"
+#   "the Prometheus server needs access to the Kubernetes API to scrape targets.
+#    Therefore, a ServiceAccount is required ... created and bound to a ClusterRole"
+#
+# namespace : prometheus
+# Status    : TESTED
+#
+# ⚠️ PRODUCTION:
+#   - ClusterRole / ClusterRoleBinding เป็น cluster-scoped ชื่อ "prometheus" อาจชนกับของเดิม
+#     → ถ้ามีอยู่แล้วให้เปลี่ยนชื่อ (และแก้ชื่อใน ruleRef/subjects ของไฟล์นี้ด้วย)
+#   - ใช้กับ Prometheus CR ในไฟล์ 08-prometheus.yaml (spec.serviceAccountName)
+#
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: prometheus
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/metrics
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# เพิ่มจากบทความ — รองรับ Kubernetes service discovery แบบ EndpointSlice
+#
+# ปกติ operator สร้าง service discovery เป็น role: endpoints (ค่า default)
+#   → ใช้สิทธิ์ endpoints ที่มีอยู่แล้วก็พอ
+# แต่ถ้าตั้ง spec.serviceDiscoveryRole: EndpointSlice ใน Prometheus CR
+#   จะต้องใช้สิทธิ์นี้
+# ─────────────────────────────────────────────────────────────────────────────
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: prometheus

@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-data
+  namespace: demo203-dr
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: sc-clus2-nfs
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: demo203-dr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-amr-test
+  template:
+    metadata:
+      labels:
+        app: nginx-amr-test
+    spec:
+      initContainers:
+        - name: init-content
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              cat > /data/index.html <<'EOF'
+              <!doctype html>
+              <html>
+                <head><title>Trident Protect AMR Test</title></head>
+                <body>
+                  <h1>Nginx test app on k8s-clus2</h1>
+                  <p>Namespace: demo203-dr</p>
+                  <p>Persistent content stored on PVC nginx-data.</p>
+                </body>
+              </html>
+              EOF
+          volumeMounts:
+            - name: nginx-data
+              mountPath: /data
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: nginx-data
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: nginx-data
+          persistentVolumeClaim:
+            claimName: nginx-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: demo203-dr
+spec:
+  type: ClusterIP
+  selector:
+    app: nginx-amr-test
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
