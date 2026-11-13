@@ -866,3 +866,422 @@ Two safety points were found while writing the file:
 
 The file also documents that namespace `demo203-dr` on k8s-clus2 must not be deleted, since
 it holds the `demo203` Application and is the source of the `amr-demo203` relationship.
+
+## Step 25: Install Alertmanager and Verify Email Alerts
+
+- Time: `2026-11-12 20:00-20:27 +07`
+- Status: PASS
+
+Installed Mailpit, Alertmanager, the external Alertmanager Service and the Trident Protect
+alert rules from files `19-*`, `20-alert-rules.yaml` and `21-mailpit.yaml`.
+
+Endpoints:
+
+```text
+Mailpit UI       http://10.10.110.113:8025
+Alertmanager UI  http://10.10.110.114:9093
+Mailpit SMTP     mailpit-smtp.mailpit.svc:1025
+```
+
+The first Prometheus configuration discovered the Alertmanager endpoint but dropped it.
+The Alertmanager reference used `name: alertmanager`, while the Service created by the
+Operator is named `alertmanager-operated`. Prometheus relabel regexes are fully anchored,
+so these names do not match partially. The reference was corrected to:
+
+```yaml
+alerting:
+  alertmanagers:
+    - namespace: prometheus
+      name: alertmanager-operated
+      port: web
+      scheme: http
+      pathPrefix: /
+```
+
+After the Operator regenerated the configuration and Prometheus reloaded it:
+
+```text
+active Alertmanager  http://10.244.38.217:9093/api/v2/alerts
+Alertmanager CR      Ready=True Reconciled=True Available=True
+Alertmanager pod     alertmanager-alertmanager-0  2/2 Running
+```
+
+All five rules loaded with `health=ok`:
+
+```text
+BackupFailed       inactive
+BackupCompleted    inactive
+SnapshotFailed     inactive
+SnapshotCompleted  firing (6 series)
+AppVaultError      inactive
+```
+
+Alertmanager received all six `SnapshotCompleted` alerts and grouped them into one email.
+Mailpit received the message successfully:
+
+```text
+Subject  [Trident Protect] FIRING SnapshotCompleted
+From     alertmanager@trident-protect.local
+To       trident-protect@example.com
+Created  2026-11-12T13:24:45.992Z
+```
+
+## Step 26: Custom Alert Email Format
+
+- Time: `2026-11-12 20:00-2026-11-13 10:10 +07`
+- Status: PASS
+
+Replaced the default Alertmanager email template with a custom `text:` and `html:` template
+in `19-alertmanager-config.yaml`.
+
+Root cause of the large emails: the default template prints every label of every alert,
+including `container`, `job`, `pod`, `instance`, `prometheus`, `service`,
+`customresource_*` and the multi-kilobyte `conditions` label of AppMirrorRelationship.
+
+Size measured from Mailpit:
+
+```text
+                              default     custom
+SnapshotCompleted (18 alerts)   127 KB     6.8 KB
+AMRTransferCompleted (2)         57 KB     4.6 KB
+HTML part alone                15.5 KB     4.3 KB
+```
+
+Final format groups alerts by application and shows only the meaningful fields:
+
+```text
+SnapshotCompleted - 10 firing - 19 resolved
+2026-11-13 10:04 (Asia/Bangkok)
+
+FIRING
+[INFO]  auto-auto-backup-01  (k8s-clus1-source-manifests)
+   custom-48daa-20261113025500  11-13 09:56
+   custom-48daa-20261113030000  11-13 10:01
+[WARNING]  zz-test-app  (zz-test-vault)
+   zz-format-test  11-13 10:01
+
+RESOLVED
+[INFO]  auto-auto-backup-01  (k8s-clus1-source-manifests)
+   custom-48daa-20261113022500  11-13 09:26
+   custom-48daa-20261113023000  11-13 09:31
+   custom-48daa-20261113023500  11-13 09:36
+Showing first 3 of 19 resolved alerts
+View all: http://alertmanager-alertmanager-0:9093/#/alerts?receiver=email
+```
+
+Findings while building the template:
+
+- Alertmanager 0.34.2 has no arithmetic function in templates (`add`/`sub` do not exist),
+  so alert numbering was dropped.
+- `amtool check-config` validates only the config schema, not the inline `text:` and
+  `html:` strings. Those are parsed when a notification is sent, so every change was
+  verified with a real email.
+- The container filesystem is read-only except `/alertmanager` and `/dev/shm`, which is
+  where the temporary config file for `amtool check-config` was written.
+- Grouping is implemented by comparing each alert with the previous one. It relies on
+  Alertmanager sorting alerts by label set, where `appReference` is the first differing
+  label, so alerts of the same application stay adjacent.
+- `CommonLabels` only contains labels that every alert in the group has. Reading
+  `prometheus` from it returned an empty string when a synthetic alert without that
+  label was injected, so the label was dropped from the template instead.
+
+The synthetic test alert used to validate the template was created with `amtool alert add`
+and expired on its own. No error was logged by Alertmanager during the whole change.
+
+## Step 27: Add Detail Fields to Alert Email
+
+- Time: `2026-11-13 10:40-11:10 +07`
+- Status: PASS
+
+The alert email now shows six detail fields per alert: application name, namespace, task,
+status, timestamp and error message.
+
+```text
+Snapshot completed
+13/11/2026 11:20 (Asia/Bangkok)
+
+COMPLETED  custom-f91a1-20261113042000
+   App        auto-auto-backup-03
+   Namespace  auto-backup-03
+   Task       Snapshot
+   Status     Completed
+   Time       13/11/2026 11:20
+
+CLEARED  custom-69fe1-20261113040000
+   App        auto-auto-backup-01
+   Namespace  auto-backup-01
+   Task       Snapshot
+   Status     Completed
+   Time       13/11/2026 11:00
+
+Showing 3 of 26 cleared
+View all: http://10.10.110.114:9093/#/alerts?receiver=email
+```
+
+The failure case was verified with an injected alert:
+
+```text
+FAILED  zz-error-test
+   App        zz-app
+   Namespace  zz-ns
+   Task       Backup
+   Status     Error
+   Time       13/11/2026 11:25
+   Error      Failed to create snapshot: bucket unreachable
+```
+
+### The namespace of the custom resource
+
+The `namespace` label of a custom resource metric is not the namespace of the CR.
+Prometheus Operator adds it during the scrape and always overwrites the value:
+
+```yaml
+- source_labels: [__meta_kubernetes_namespace]
+  target_label: namespace
+  action: replace
+```
+
+The kube-state-metrics documentation suggests mapping `namespace: [metadata, namespace]`,
+which does work for a standalone KSM, but the value is replaced here before it is stored.
+
+The label was therefore named `cr_namespace` in `05-ksm-values.yaml` for all five custom
+resource types (Backup, Snapshot, ExecHooksRun, AppVault, AppMirrorRelationship).
+`creation_time` was also added to AppVault, which did not have it.
+
+```text
+kube_customresource_backup_info                     cr_namespace = auto-backup-01, auto-backup-02, auto-backup-03, auto-backup-05, demo201
+kube_customresource_snapshot_info                   cr_namespace = auto-backup-01..05, demo201, demo202
+kube_customresource_appvault_info                   cr_namespace = trident-protect
+kube_customresource_app_mirror_relationship_info    cr_namespace = demo203
+kube_customresource_ehr_info                        cr_namespace = auto-backup-01..05, demo201, demo201-backup-restore, demo201-snap-restore, demo202
+```
+
+Applied with:
+
+```bash
+helm upgrade trident-protect prometheus-community/kube-state-metrics \
+  -f 05-ksm-values.yaml --version 9.0.0 -n prometheus
+kubectl -n prometheus rollout restart deployment/trident-protect-kube-state-metrics
+```
+
+The restart is required because kube-state-metrics reads its configuration file only at
+startup, a ConfigMap change alone does not reload it.
+
+### Other changes
+
+- Timestamp uses `creation_time` of the CR, which is the real time of the operation, instead
+  of the time Prometheus detected the alert. AppMirrorRelationship uses
+  `lastTransferredSnapshotCompletionTimestamp`.
+- Badge values are `COMPLETED`, `FAILED` and `CLEARED` instead of the Alertmanager terms
+  `firing` and `resolved`.
+- The header uses the `summary` annotation, with the alert name as a fallback.
+- `spec.externalUrl` was set on the Alertmanager CR so that the "View all" link in the email
+  points to the MetalLB address instead of the internal pod URL.
+
+### Verification
+
+```text
+Prometheus rules   all health=ok
+Alertmanager       Available=True Reconciled=True, no error in log
+active Alertmanager http://10.244.229.127:9093/api/v2/alerts
+```
+
+No dashboard panel or alert rule filtered on the `namespace` label of these metrics, so the
+label change did not affect them. The dashboard can now filter by namespace of the
+application using `cr_namespace`.
+
+## Step 28: Notify Only the Current Round
+
+- Time: `2026-11-13 11:30-11:55 +07`
+- Status: PASS
+
+The completed-alert email contained the history of earlier rounds. Three changes removed it.
+
+### Cause of the history
+
+Alertmanager keeps the alerts of a group in memory and every notification contains all of them.
+The resolved alerts are only removed from the group after a notification was sent, so the
+previous round always showed up in the next email.
+
+On top of that, the alert rules used `offset 10m` while the schedule runs every 5 minutes,
+so two rounds were firing at the same time:
+
+```text
+SnapshotCompleted group   6 alerts firing = 3 applications x 2 rounds
+```
+
+### Changes
+
+1. `20-alert-rules.yaml` — `offset 10m` changed to `offset 5m` in the three rules, so an
+   alert stays firing for exactly one round.
+2. `19-alertmanager-config.yaml` — the route is split by severity:
+
+```yaml
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: email-alert
+  routes:
+    - receiver: email-event
+      matchers:
+        - 'severity="info"'
+```
+
+3. The template renders only `.Alerts.Firing` for the `email-event` receiver. The resolved
+   section is guarded by `{{ if ne .Receiver "email-event" }}` and stays visible for
+   `email-alert`.
+
+| receiver | severity | `send_resolved` | content |
+|---|---|---|---|
+| `email-event` | `info` | `false` | current round only |
+| `email-alert` | `critical`, `warning` | `true` | also notifies when the problem is fixed |
+
+### Result
+
+```text
+Snapshot completed
+13/11/2026 11:40 (Asia/Bangkok)
+
+COMPLETED  custom-48daa-20261113043500
+   App        auto-auto-backup-01
+   Namespace  auto-backup-01
+   Task       Snapshot
+   Status     Completed
+   Time       13/11/2026 11:35
+
+COMPLETED  custom-1fb8e-20261113043500
+   App        auto-auto-backup-02
+   Namespace  auto-backup-02
+   Task       Snapshot
+   Status     Completed
+   Time       13/11/2026 11:35
+
+COMPLETED  custom-f91a1-20261113043500
+   App        auto-auto-backup-03
+   Namespace  auto-backup-03
+   Task       Snapshot
+   Status     Completed
+   Time       13/11/2026 11:35
+
+View all: http://10.10.110.114:9093/#/alerts?receiver=email-event
+```
+
+Size of the same email before and after:
+
+```text
+before   11,279 bytes   6 alerts firing + 3 cleared
+after     5,280 bytes   3 alerts firing, one round
+```
+
+The failure path was verified with an injected alert that was given an end time:
+
+```text
+FAILED   zz-recover-test
+   App        zz-app
+   ...
+   Error      Failed to create snapshot: bucket unreachable
+```
+
+and after it resolved:
+
+```text
+CLEARED  zz-recover-test
+   App        zz-app
+   ...
+```
+
+### Findings
+
+- `send_resolved` does not remove resolved alerts from the email body. It only decides
+  whether a notification is triggered when alerts resolve
+  (`notify/dedup_stage.go`). The template always receives both lists, so the resolved
+  section has to be hidden in the template itself.
+- Resolved alerts are deleted from the group after a notification was sent
+  (`dispatch/dispatch.go`, `flush`), so a group that keeps producing notifications does not
+  grow.
+- The templates of the two receivers are identical but YAML block scalars cannot use
+  anchors, so the file contains the template twice. Both copies must be kept in sync.
+
+### Documentation follow-up
+
+`README.md` was updated to match the delivered state:
+
+- The run order now lists the alerting steps 16 to 19, step 8 uses
+  `08-prometheus-alert.yaml` instead of `08-prometheus.yaml`.
+- The note that claimed the custom resource metrics carry no namespace label was corrected,
+  the namespace of the resource is exposed as `cr_namespace`.
+- A new section describes the alerts, the two receivers and the email format.
+- Alertmanager and Mailpit were added to the service URLs and Alertmanager to the version
+  table.
+
+While checking the documents, `19-alertmanager.md` turned out to contain three duplicated
+"ข้อควรระวัง" sections left over from replacing the email format section several times.
+The duplicates were removed and the remaining table was corrected to `offset 5m`.
+
+## Step 29: Full Cleanup of k8s-clus1
+
+- Time: `2026-11-13 12:05-12:15 +07`
+- Status: PASS
+
+Removed the complete monitoring stack from `k8s-clus1` so the deployment can be run again from
+file `01`.
+
+Order of removal, the custom resources have to go before the Operator and the CRDs, otherwise
+the StatefulSets and Services can be left behind by the owner references.
+
+```bash
+# Helm releases
+helm uninstall my-grafana -n grafana
+helm uninstall trident-protect -n prometheus        # kube-state-metrics, not Trident Protect
+
+# Custom resources
+kubectl delete -f 08-prometheus-alert.yaml
+kubectl delete -f 19-alertmanager.yaml
+kubectl delete -f 20-alert-rules.yaml
+kubectl delete -f 13-trident-servicemonitor.yaml
+kubectl delete -f 10-prometheus-external-service.yaml
+kubectl delete -f 19-alertmanager-external-service.yaml
+kubectl delete -f 19-alertmanager-config.yaml
+kubectl delete -f 07-prometheus-rbac.yaml
+
+# Operator
+kubectl -n prometheus delete deployment/prometheus-operator
+kubectl -n prometheus delete service/prometheus-operator
+kubectl -n prometheus delete serviceaccount/prometheus-operator
+kubectl delete clusterrolebinding prometheus-operator
+kubectl delete clusterrole prometheus-operator
+
+# CRDs
+kubectl get crd -o name | grep monitoring.coreos.com | xargs -r kubectl delete
+
+# Namespaces
+kubectl delete namespace prometheus grafana mailpit
+```
+
+Verified afterwards:
+
+```text
+Helm releases            trident, trident-protect only
+Namespaces               prometheus, grafana, mailpit gone
+monitoring CRDs          none left
+cluster RBAC             none left
+PV and PVC               none left
+MetalLB addresses        10.10.110.111-114 released
+```
+
+Trident Protect was not touched:
+
+```text
+trident-protect-controller-manager   1/1
+trident-controller                   1/1
+trident-operator                     1/1
+
+backups                     26
+snapshots                  123
+appvaults                    4
+appmirrorrelationships       1
+```
+
+`k8s-clus2` was left as it is, it still runs the kube-prometheus-stack of the adoption test.

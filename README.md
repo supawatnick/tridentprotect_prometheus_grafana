@@ -1,7 +1,7 @@
 # NetApp Trident Protect — Prometheus and Grafana Monitoring
 
 Monitoring and visualization for NetApp Trident and Trident Protect with Prometheus,
-Grafana and kube-state-metrics, following the NetApp Community guide.
+Grafana, kube-state-metrics and Alertmanager, following the NetApp Community guide.
 
 ## Source
 
@@ -21,6 +21,10 @@ Operator:
 | AppVault | `kube_customresource_appvault_info` |
 | AppMirrorRelationship | `kube_customresource_app_mirror_relationship_info` |
 
+The `namespace` label of these metrics is the namespace of the pod that was scraped, not
+the namespace of the custom resource. The namespace of the resource itself is exposed as
+`cr_namespace`, see `05-ksm-values.yaml`.
+
 Trident CSI exposes its own metrics on port `8001` at `/metrics`, collected through a
 separate ServiceMonitor:
 
@@ -36,6 +40,8 @@ separate ServiceMonitor:
 - Helm and kubectl
 - MetalLB, if Prometheus and Grafana should be reachable from outside the cluster
 - A Trident NFS storage class for Grafana persistence
+- An SMTP relay, if alert notifications should be sent by email. The lab setup uses
+  Mailpit as a local stand-in, see `19-alertmanager.md`
 
 ## Versions used
 
@@ -45,6 +51,7 @@ separate ServiceMonitor:
 | Prometheus | `v3.14.0` |
 | kube-state-metrics chart | `9.0.0` (app `v2.20.0`) |
 | Grafana chart | `10.5.15` (app `12.3.1`) |
+| Alertmanager | `v0.34.2` |
 
 ## Run order
 
@@ -59,7 +66,7 @@ Run the files in this order. Each step has its own verify block.
 | 5 | `05-ksm-values.yaml` | KSM configuration and RBAC for the Trident Protect CRs |
 | 6 | `06-install-ksm.md` | Install kube-state-metrics |
 | 7 | `07-prometheus-rbac.yaml` | Prometheus ServiceAccount, ClusterRole and binding |
-| 8 | `08-prometheus.yaml` | Prometheus custom resource |
+| 8 | `08-prometheus-alert.yaml` | Prometheus custom resource, including the Alertmanager target and the rule selectors |
 | 9 | `09-prometheus-operator-installation.md` | Install Prometheus Operator and the remaining CRDs |
 | 10 | `10-prometheus-external-service.yaml` | Expose Prometheus through MetalLB |
 | 11 | `13-trident-servicemonitor.yaml` | ServiceMonitor for the Trident CSI metrics |
@@ -67,6 +74,15 @@ Run the files in this order. Each step has its own verify block.
 | 13 | `15-grafana-datasource.md` | Add Prometheus as a Grafana data source |
 | 14 | `16-grafana-dashboard.md`, `16-grafana-dashboard.json` | Import the dashboard from the blog |
 | 15 | `17-trident-protect-dashboard.md`, `17-trident-protect-dashboard.json` | Import the custom dashboard |
+| 16 | `21-mailpit.yaml` | Mailpit, the SMTP target for the alert emails |
+| 17 | `19-alertmanager-config.yaml`, `19-alertmanager.yaml` | Alertmanager and its email receiver configuration |
+| 18 | `19-alertmanager-external-service.yaml` | Expose the Alertmanager UI through MetalLB |
+| 19 | `20-alert-rules.yaml` | Alert rules for Backup, Snapshot, AppVault and AppMirrorRelationship |
+
+`08-prometheus.yaml` is the same resource without the `alerting` and rule selector fields,
+for a monitoring-only deployment. `08-prometheus-alert.yaml` is a strict superset of it, so
+apply that one instead of the base file and never apply the base file afterwards, it would
+remove the alerting configuration again.
 
 `12-nginx-test-app-clus2.yaml` is an optional test application used to verify the
 AppMirrorRelationship replication path.
@@ -95,7 +111,7 @@ helm install trident-protect -f 05-ksm-values.yaml \
 
 # 4. Prometheus
 kubectl apply -f 07-prometheus-rbac.yaml
-kubectl apply -f 08-prometheus.yaml
+kubectl apply -f 08-prometheus-alert.yaml
 
 # 5. ServiceMonitors and external access
 kubectl apply -f 13-trident-servicemonitor.yaml
@@ -106,6 +122,13 @@ helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 kubectl create namespace grafana --dry-run=client -o yaml | kubectl apply -f -
 helm install my-grafana grafana/grafana -f 14-grafana-values.yaml --version 10.5.15 -n grafana
+
+# 7. Alerting
+kubectl apply -f 21-mailpit.yaml
+kubectl apply -f 19-alertmanager-config.yaml
+kubectl apply -f 19-alertmanager.yaml
+kubectl apply -f 19-alertmanager-external-service.yaml
+kubectl apply -f 20-alert-rules.yaml
 ```
 
 ## Cluster specific values
@@ -125,6 +148,10 @@ few files have a `-clus2` variant.
 | Grafana values | `14-grafana-values.yaml` | `14-grafana-values-clus2.yaml` |
 | Custom dashboard | `17-trident-protect-dashboard.json` | `17-trident-protect-dashboard-clus2.json` |
 
+The alerting files `19-*`, `20-alert-rules.yaml` and `21-mailpit.yaml` were written for
+cluster 1 only. `spec.externalUrl` in `19-alertmanager.yaml` holds the MetalLB address of
+the `alertmanager-external` Service and has to match the address that MetalLB assigns.
+
 The two MetalLB pools do not overlap, so both clusters can advertise on the same network
 at the same time.
 
@@ -140,11 +167,53 @@ Service DNS names use the standard Kubernetes form:
 |---|---|
 | Prometheus | `http://prometheus-operated.prometheus.svc.cluster.local:9090` |
 | Grafana | `http://my-grafana.grafana.svc.cluster.local` |
+| Alertmanager | `http://alertmanager-operated.prometheus.svc.cluster.local:9093` |
+| Mailpit | `http://mailpit-http.mailpit.svc.cluster.local:8025` |
 | kube-state-metrics | `http://trident-protect-kube-state-metrics.prometheus.svc.cluster.local:8080` |
 | Trident CSI metrics | `http://trident-csi.trident.svc.cluster.local:9220` |
 
 These names resolve inside the cluster only. From a workstation use the MetalLB address
 instead.
+
+## Alerting
+
+Prometheus evaluates the rules in `20-alert-rules.yaml` and hands the firing alerts to
+Alertmanager, which sends them by email.
+
+| Alert | Condition | Severity |
+|---|---|---|
+| `BackupFailed`, `SnapshotFailed` | `status="Error"` | critical |
+| `BackupCompleted`, `SnapshotCompleted` | `status="Completed"` and created within the last 5 minutes | info |
+| `AppVaultError` | `state="Error"` | critical |
+| `AMRError` | `state="Error"` | critical |
+| `AMRNotEstablished` | not established for more than 10 minutes | warning |
+| `AMRTransferCompleted` | transfer succeeded and the snapshot is newer than 5 minutes | info |
+
+The route is split by severity, so a normal event never carries the history of the earlier
+rounds:
+
+| Receiver | Used for | `send_resolved` | Content |
+|---|---|---|---|
+| `email-event` | `severity=info` | `false` | only the events of the current round |
+| `email-alert` | `severity=critical`, `warning` | `true` | also notifies when the problem is fixed |
+
+Every email shows six details per alert: application name, namespace, task, status,
+timestamp and the error message when there is one.
+
+```text
+Snapshot completed
+13/11/2026 11:40 (Asia/Bangkok)
+
+COMPLETED  custom-48daa-20261113043500
+   App        auto-auto-backup-01
+   Namespace  auto-backup-01
+   Task       Snapshot
+   Status     Completed
+   Time       13/11/2026 11:35
+```
+
+The lab uses Mailpit as the SMTP target, the web UI shows the received mail. For a real
+deployment replace the SMTP settings with a mail relay, see `19-alertmanager.md` section 8.
 
 ## Dashboards
 
@@ -182,9 +251,10 @@ resources, the Operator, the CRDs and the namespaces.
   blog is not referenced by the Prometheus custom resource and is not mounted into the pod,
   so it has no effect. The kube-state-metrics chart creates a ServiceMonitor and the
   Prometheus custom resource selects it with `serviceMonitorSelector: {}`.
-- **Custom resource metrics carry no namespace label.** The `namespace` label on these
-  metrics is the namespace of the pod that was scraped, not the namespace of the custom
-  resource. Only `appReference` identifies the application.
+- **The `namespace` label on custom resource metrics is not the namespace of the custom
+  resource.** Prometheus Operator sets it to the namespace of the scraped target, so the
+  namespace of the resource is exposed as `cr_namespace` instead, see
+  `05-ksm-values.yaml`.
 - **`creation_time` and `lastTransfer*` are labels.** They cannot be used in arithmetic
   against timestamps, only for ordering and grouping.
 - **Grafana has no authentication.** When it is exposed through MetalLB, restrict network

@@ -1,0 +1,68 @@
+# Prometheus CR ฉบับที่เปิด Alertmanager
+#
+# ไฟล์นี้คือ superset ของ 08-prometheus.yaml (มีทุก field เหมือนกัน) เพิ่มส่วน
+# alerting และ rule selector เข้าไป
+#
+# ต้องเป็นไฟล์เต็มชุด ไม่ใช่ patch เพราะ kubectl apply ใช้ 3-way merge
+# ถ้าไฟล์นี้มีแค่ alerting กับ ruleSelector ฟิลด์อื่นที่อยู่ใน last-applied เดิม
+# (scrapeInterval, serviceMonitorSelector ...) จะถูกลบออกไป
+#
+# namespace : prometheus
+#
+# ⚠️ ลำดับสำคัญ: ต้อง apply ไฟล์นี้หลัง 19-alertmanager.yaml
+#    ถ้า apply 08-prometheus.yaml ทีหลังจะทำให้ alerting และ ruleSelector หายไป
+#
+# ⚠️ PRODUCTION:
+#   - เปลี่ยน namespace ให้ตรงกับที่ใช้จริง
+#   - spec.serviceAccountName ต้องตรงกับ SA ในไฟล์ 07-prometheus-rbac.yaml
+#
+# ต้องมี Prometheus CRD ก่อน → รัน 02-prometheus-crd.md ก่อนไฟล์นี้
+# ต้องมี Alertmanager CRD ก่อน → รัน 04-alertmanager-crd.md ก่อนไฟล์นี้
+#
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+  namespace: prometheus
+spec:
+  serviceAccountName: prometheus
+  scrapeInterval: 15s
+  serviceMonitorNamespaceSelector: {}
+  serviceMonitorSelector: {}
+  podMonitorSelector: {}
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # ปลายทางของ alert → Alertmanager (ไฟล์ 19-alertmanager.yaml)
+  #
+  # name ต้องเป็นชื่อ Service ของ Alertmanager แบบตรงทุกตัวอักษร
+  # เพราะ Operator แปลงค่านี้เป็น relabel rule แบบ keep ซึ่งใช้ regex ที่ anchored
+  # (pkg/prometheus/promcfg.go → regex: <name>) ถ้าไม่ตรงจะ match ไม่ได้
+  # และ Prometheus จะทิ้ง target นั้นแบบเงียบๆ ไม่มี error
+  #
+  # Service ที่ Operator สร้างให้เสมอคือ `alertmanager-operated` (headless)
+  # ส่วน `alertmanager` เป็นชื่อของ Alertmanager CR ไม่ใช่ชื่อ Service
+  #
+  # port ต้องเป็นชื่อ port บน Service ดังกล่าว ซึ่งใช้ค่า CR field spec.portName
+  # ค่า default ของ Operator คือ `web` (pkg/alertmanager/statefulset.go)
+  # ───────────────────────────────────────────────────────────────────────────
+  alerting:
+    alertmanagers:
+      - namespace: prometheus
+        name: alertmanager-operated
+        port: web
+        scheme: http
+        pathPrefix: /
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # เลือก PrometheusRule สำหรับประเมิน
+  #
+  # จาก schema ของ CRD: empty selector = ทุก object, null = ไม่เลือกเลย
+  # ถ้าไม่ตั้ง PrometheusRule จะไม่ถูกประเมินโดยไม่มี error ให้เห็น
+  # ───────────────────────────────────────────────────────────────────────────
+  ruleSelector: {}
+  ruleNamespaceSelector: {}
+
+  resources:
+    requests:
+      memory: 400Mi

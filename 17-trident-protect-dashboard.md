@@ -153,8 +153,9 @@ Dashboards -> New -> Import -> Upload JSON file
 
 ## ข้อจำกัด
 
-- metric ของ kube-state-metrics **ไม่มี label ของ namespace ของ CR** จึงกรองตาม namespace ของ application ไม่ได้ มีได้แค่ `appReference`
-- label `namespace` บน metric หมายถึง namespace ของ pod ที่ทำการ scrape (คือ `prometheus`) ไม่ใช่ namespace ของ CR
+- metric ของ kube-state-metrics มี label `cr_namespace` ที่เป็น namespace จริงของ CR (เพิ่มในไฟล์ `05-ksm-values.yaml`) จึงกรองตาม namespace ของ application ได้
+- ห้ามใช้ชื่อ label `namespace` เพื่อเก็บ namespace ของ CR เพราะ Prometheus Operator จะเติม label `namespace` = namespace ของ target ทับค่านั้นเสมอ (relabel `__meta_kubernetes_namespace`)
+- ต้องใช้ชื่อ `cr_namespace` แทน ดูรายละเอียดใน `19-alertmanager.md`
 - `creation_time` เป็น label จึงนำมาทำ arithmetic กับเวลาไม่ได้ ใช้ได้แค่เรียงลำดับ
 - panel ที่ไม่มีข้อมูล (เช่น ไม่มี Backup ที่ Error) ใช้ `or vector(0)` เพื่อให้แสดง 0 แทน `No data`
 - คอลัมน์ `Error` และ `Message` ของตาราง AppVaults จะปรากฏเฉพาะเมื่อมี AppVault อยู่ในสถานะ Error เท่านั้น

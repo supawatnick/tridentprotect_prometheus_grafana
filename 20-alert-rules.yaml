@@ -1,0 +1,143 @@
+# Alert rules สำหรับ Trident Protect
+#
+# NetApp docs: "The following example defines a critical alert that is triggered
+#   when the status of the backup custom resource is set to Error for 5 seconds"
+#
+#   rules.yaml: |
+#     groups:
+#       - name: fail-backup
+#         rules:
+#           - alert: BackupFailed
+#             expr: kube_customresource_backup_info{status="Error"}
+#             for: 5s
+#             labels:
+#               severity: critical
+#             annotations:
+#               summary: "Backup failed"
+#               description: "A backup has failed."
+#
+# namespace : prometheus
+#
+# ⚠️ PRODUCTION:
+#   - ปรับ `for` ให้เหมาะกับจังหวะการทำ backup ของแต่ละองค์การ
+#   - ปรับ email ปลายทางในไฟล์ 19-alertmanager-config.yaml
+#
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: trident-protect-alerts
+  namespace: prometheus
+  labels:
+    app.kubernetes.io/name: trident-protect
+    app.kubernetes.io/instance: alertmanager
+spec:
+  groups:
+    # ───────────────────────────────────────────────────────────────────────────
+    # Backup
+    # ───────────────────────────────────────────────────────────────────────────
+    - name: fail-backup
+      rules:
+        - alert: BackupFailed
+          expr: kube_customresource_backup_info{status="Error"}
+          for: 5s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Backup failed"
+            description: "A backup has failed."
+
+        # แจ้งเฉพาะ backup ที่เพิ่งเกิดใหม่ ไม่แจ้งซ้ำของเก่าที่ยังอยู่
+        # ใช้ unless + offset เพื่อตัด series ที่มีอยู่แล้วเมื่อ 5 นาทีก่อนออก
+        # offset ต้องเท่ากับรอบการทำงานของ schedule (ทุก 5 นาที) ไม่งั้นอีเมลจะ
+        # รวม event ของหลายรอบไว้ด้วยกัน
+        - alert: BackupCompleted
+          expr: |
+            kube_customresource_backup_info{status="Completed"}
+              unless on(backup_name)
+              count by (backup_name) (kube_customresource_backup_info{status="Completed"} offset 5m)
+          for: 5s
+          labels:
+            severity: info
+          annotations:
+            summary: "Backup completed"
+            description: "A backup has completed successfully."
+
+    # ───────────────────────────────────────────────────────────────────────────
+    # Snapshot
+    # ───────────────────────────────────────────────────────────────────────────
+    - name: fail-snapshot
+      rules:
+        - alert: SnapshotFailed
+          expr: kube_customresource_snapshot_info{status="Error"}
+          for: 5s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Snapshot failed"
+            description: "A snapshot has failed."
+
+        - alert: SnapshotCompleted
+          expr: |
+            kube_customresource_snapshot_info{status="Completed"}
+              unless on(snapshot_name)
+              count by (snapshot_name) (kube_customresource_snapshot_info{status="Completed"} offset 5m)
+          for: 5s
+          labels:
+            severity: info
+          annotations:
+            summary: "Snapshot completed"
+            description: "A snapshot has completed successfully."
+
+    # ───────────────────────────────────────────────────────────────────────────
+    # AppVault — ใช้ดูสาเหตุที่เข้าถึง object storage ไม่ได้
+    # ───────────────────────────────────────────────────────────────────────────
+    - name: fail-appvault
+      rules:
+        - alert: AppVaultError
+          expr: kube_customresource_appvault_info{state="Error"}
+          for: 5s
+          labels:
+            severity: critical
+          annotations:
+            summary: "AppVault error"
+            description: "An AppVault is in Error state and cannot reach its object storage."
+
+    # ───────────────────────────────────────────────────────────────────────────
+    # AppMirrorRelationship
+    # ───────────────────────────────────────────────────────────────────────────
+    - name: app-mirror-relationship
+      rules:
+        - alert: AMRError
+          expr: kube_customresource_app_mirror_relationship_info{state="Error"}
+          for: 5s
+          labels:
+            severity: critical
+          annotations:
+            summary: "AppMirrorRelationship error"
+            description: "AppMirrorRelationship {{ $labels.amr_name }} is in Error state."
+
+        # ไม่รวม Error เพื่อไม่ให้ส่ง warning และ critical ซ้ำสำหรับ AMR เดียวกัน
+        - alert: AMRNotEstablished
+          expr: kube_customresource_app_mirror_relationship_info{desiredState="Established",state!~"Established|Error"}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "AppMirrorRelationship is not established"
+            description: "AppMirrorRelationship {{ $labels.amr_name }} has remained in state {{ $labels.state }} for more than 10 minutes."
+
+        # แจ้งเมื่อชื่อ snapshot ล่าสุดเปลี่ยน แปลว่ามี transfer รอบใหม่สำเร็จ
+        - alert: AMRTransferCompleted
+          expr: |
+            kube_customresource_app_mirror_relationship_info{state="Established",lastTransferredSnapshotName!=""}
+              unless on(amr_name, lastTransferredSnapshotName)
+              count by (amr_name, lastTransferredSnapshotName) (
+                kube_customresource_app_mirror_relationship_info{state="Established",lastTransferredSnapshotName!=""} offset 5m
+              )
+          for: 5s
+          labels:
+            severity: info
+          annotations:
+            summary: "AppMirrorRelationship transfer completed"
+            description: "AppMirrorRelationship {{ $labels.amr_name }} transferred snapshot {{ $labels.lastTransferredSnapshotName }} successfully."

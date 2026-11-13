@@ -1,6 +1,6 @@
 # 18 - Cleanup / Uninstall
 
-Status: NOT TESTED (ยังไม่ได้รันจริง)
+Status: TESTED (`k8s-clus1`, 2026-11-12)
 
 ถอน monitoring stack ทั้งหมดออกจาก cluster
 
@@ -16,6 +16,9 @@ Status: NOT TESTED (ยังไม่ได้รันจริง)
 | Prometheus RBAC | SA + ClusterRole + CRB `prometheus` | `kubectl apply` | `kubectl delete -f` |
 | External Service | `prometheus-external` | `kubectl apply` | `kubectl delete -f` |
 | ServiceMonitor | `trident-sm` | `kubectl apply` | `kubectl delete -f` |
+| Alertmanager | `alertmanager` + config + external Service | `kubectl apply` | `kubectl delete -f` |
+| Alert rules | `trident-protect-alerts` | `kubectl apply` | `kubectl delete -f` |
+| Mailpit | namespace `mailpit` | `kubectl apply` | ลบ namespace |
 | Operator + CRD | `prometheus-operator` + CRD 10 ตัว | `bundle.yaml` | `kubectl delete` + ลบ CRD |
 
 > ลำดับสำคัญ: **ลบ Prometheus CR ก่อน Operator และ CRD**
@@ -91,7 +94,15 @@ helm uninstall trident-protect -n prometheus
 ไฟล์เหล่านี้ระบุ namespace ไว้ในตัวแล้ว จึงไม่ต้องใส่ `-n`
 
 ```bash
+kubectl delete -f 08-prometheus-alert.yaml --ignore-not-found
 kubectl delete -f 08-prometheus.yaml --ignore-not-found
+```
+
+```bash
+kubectl delete -f 20-alert-rules.yaml --ignore-not-found
+kubectl delete -f 19-alertmanager-external-service.yaml --ignore-not-found
+kubectl delete -f 19-alertmanager.yaml --ignore-not-found
+kubectl delete -f 19-alertmanager-config.yaml --ignore-not-found
 ```
 
 ```bash
@@ -172,6 +183,10 @@ kubectl delete namespace prometheus
 kubectl delete namespace grafana
 ```
 
+```bash
+kubectl delete namespace mailpit
+```
+
 ## 7. ตรวจว่าสะอาด
 
 ```bash
@@ -196,7 +211,7 @@ kubectl get crd -o name | grep monitoring.coreos.com
 ```
 
 ```bash
-kubectl get ns | grep -E 'prometheus|grafana'
+kubectl get ns | grep -E 'prometheus|grafana|mailpit'
 ```
 
 ทั้ง 5 คำสั่งต้องไม่มีผลลัพธ์

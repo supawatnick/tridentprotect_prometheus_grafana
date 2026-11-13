@@ -1,0 +1,439 @@
+# Alertmanager configuration
+#
+# Blog: "Configure Alertmanager to send alerts to other channels"
+#   "alertmanager.yaml: data: alertmanager.yaml: | global: resolve_timeout: 5m ..."
+#
+# NetApp docs: "Configure Alertmanager to send notifications to other channels,
+#   such as e-mail, PagerDuty, Microsoft Teams, or other notification services
+#   by specifying the respective alertmanager.yaml configuration file"
+#
+# ใช้ email receiver ส่งเข้า Mailpit (ไฟล์ 21-mailpit.yaml) ใน lab
+#
+# ───────────────────────────────────────────────────────────────────────────
+# ⚙️ ปรับเป็น PRODUCTION — แก้ 3 จุดนี้
+#
+# 1) SMTP server   → global.smtp_smarthost
+#    lab  : 'mailpit-smtp.mailpit.svc:1025'
+#    prod : 'smtp.corp.example.com:587'      587 = STARTTLS, 465 = implicit TLS
+#
+# 2) คนส่ง (From)  → global.smtp_from
+#    lab  : 'alertmanager@trident-protect.local'
+#    prod : 'alertmanager@example.com'
+#           ต้องเป็นโดเมนที่มี SPF/DKIM/DMARC ตั้งไว้ ไม่งั้นอีเมลจะตก Junk
+#
+# 3) คนรับ (To)   → receivers[].email_configs[].to
+#    lab  : 'trident-protect@example.com'
+#    prod : 'noc@example.com, sre-team@example.com'   หลายคนคั่นด้วย comma
+#
+# ถ้า relay ต้อง authentication ให้เพิ่มใน global:
+#       smtp_auth_username: 'alertmanager@example.com'
+#       smtp_auth_password: '<SMTP_PASSWORD>'
+#       smtp_require_tls: true
+#       smtp_hello: 'alertmanager@example.com'
+#           default ของ Alertmanager คือ localhost ซึ่ง relay ส่วนใหญ่จะ reject
+#
+# ⚠️ ห้าม commit password จริงลง Git
+#    ทางเลือกที่ปลอดภัยกว่า — ใส่ spec.secrets: [smtp-credentials] ในไฟล์
+#    19-alertmanager.yaml แล้วอ้างไฟล์แทนค่า password:
+#       smtp_auth_password_file: '/etc/alertmanager/secrets/smtp-credentials/password'
+#    สร้าง Secret นอก Git:
+#       kubectl -n prometheus create secret generic smtp-credentials \
+#         --from-literal=password='<SMTP_PASSWORD>'
+#
+# แก้แล้ว apply อย่างเดียวไม่ต้อง restart pod
+# Operator mount Secret นี้ไว้ที่ /etc/alertmanager/config
+# และ config-reloader จะ reload ให้อัตโนมัติภายในประมาณ 1 นาที
+# ───────────────────────────────────────────────────────────────────────────
+#
+# namespace : prometheus
+# key       : alertmanager.yaml  (ชื่อ key ต้องตรงตามที่ Operator กำหนด)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-config
+  namespace: prometheus
+  labels:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/instance: alertmanager
+type: Opaque
+stringData:
+  alertmanager.yaml: |
+    global:
+      resolve_timeout: 5m
+      # ปลายทางของอีเมลใน lab (Mailpit) — ไม่มี authentication และไม่ใช้ TLS
+      # ชื่อ Service คือ mailpit-smtp (ดูไฟล์ 21-mailpit.yaml)
+      # prod: เปลี่ยนเป็น relay จริง + ใส่ credential ตามคำอธิบายด้านบน
+      smtp_smarthost: 'mailpit-smtp.mailpit.svc:1025'
+      smtp_from: 'alertmanager@trident-protect.local'
+      smtp_require_tls: false
+
+    route:
+      group_by: ['alertname']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: email-alert
+      # แยกตาม severity
+      #   info            → event ปกติ แจ้งเฉพาะรอบปัจจุบัน ไม่มีประวัติ
+      #   critical/warning → ปัญหา แจ้งด้วยเมื่อปัญหาหายแล้ว
+      routes:
+        - receiver: email-event
+          matchers:
+            - 'severity="info"'
+
+    receivers:
+      # ─────────────────────────────────────────────────────────────────
+      # email-event — alert ที่ severity=info (event ปกติ เช่น SnapshotCompleted)
+      # ─────────────────────────────────────────────────────────────────
+      - name: email-event
+        email_configs:
+          - to: 'trident-protect@example.com'
+            send_resolved: false
+            headers:
+              subject: '[Trident Protect] {{ $a0 := index .Alerts 0 }}{{ $n := $a0.Annotations.summary }}{{ if eq $n "" }}{{ $n = $a0.Labels.alertname }}{{ end }}{{ $c := len .Alerts.Firing }}{{ if eq $c 0 }}{{ $c = len .Alerts.Resolved }}{{ end }}{{ $n }} - {{ $c }} {{ if eq $c 1 }}event{{ else }}events{{ end }}'
+            # ⚠️ template ชุดนี้ต้องตรงกับของอีก receiver ทุกบรรทัด
+            #    แก้ชุดเดียวแล้วคัดลอกไปอีกชุด
+            text: |
+              {{- define "tp_alert" -}}
+              {{- $a := index . 0 -}}
+              {{- $tz := index . 1 -}}
+              {{- $mode := index . 2 -}}
+              {{- $l := $a.Labels -}}
+              {{- $id := $l.alertname -}}
+              {{- if $l.backup_name }}{{ $id = $l.backup_name }}
+              {{- else if $l.snapshot_name }}{{ $id = $l.snapshot_name }}
+              {{- else if $l.appvault_name }}{{ $id = $l.appvault_name }}
+              {{- else if $l.amr_name }}{{ $id = $l.amr_name }}
+              {{- end }}
+              {{- $app := $l.appReference -}}
+              {{- if $l.amr_name }}{{ $app = printf "%s -> %s" $l.sourceApplicationName $l.destinationApplicationRef }}{{ end -}}
+              {{- $task := $l.customresource_kind -}}
+              {{- if eq $l.customresource_kind "AppMirrorRelationship" }}{{ $task = "Replication" }}{{ end -}}
+              {{- if $l.stage }}{{ $task = printf "%s-%s hook" $l.stage $l.action }}{{ end -}}
+              {{- $status := $l.status -}}
+              {{- if eq $status "" }}{{ $status = $l.state }}{{ end -}}
+              {{- $ts := $a.StartsAt -}}
+              {{- if $l.lastTransferredSnapshotCompletionTimestamp }}{{ $ts = toDate "2006-01-02T15:04:05Z07:00" $l.lastTransferredSnapshotCompletionTimestamp }}
+              {{- else if $l.creation_time }}{{ $ts = toDate "2006-01-02T15:04:05Z07:00" $l.creation_time }}
+              {{- end -}}
+              {{- $outcome := "COMPLETED" -}}
+              {{- if eq $mode "CLEARED" }}{{ $outcome = "CLEARED" }}
+              {{- else if match "Failed|Error|NotEstablished" $l.alertname }}{{ $outcome = "FAILED" }}{{ end }}
+              {{ $extra := "" -}}
+              {{ if $l.lastTransferredSnapshotName }}{{ $extra = printf "\n   Snapshot   %s" $l.lastTransferredSnapshotName }}{{ end -}}
+              {{ if $l.error }}{{ $extra = printf "%s\n   Error      %s" $extra $l.error }}{{ end -}}
+              {{ $outcome }}  {{ $id }}
+                 App        {{ $app }}
+                 Namespace  {{ $l.cr_namespace }}
+                 Task       {{ $task }}
+                 Status     {{ $status }}
+                 Time       {{ date "02/01/2006 15:04" (tz $tz $ts) }}{{ $extra }}
+              {{ end }}
+              {{- $tz := "Asia/Bangkok" -}}
+              {{- $a0 := index .Alerts 0 -}}
+              {{- $name := $a0.Annotations.summary -}}
+              {{- if eq $name "" }}{{ $name = $a0.Labels.alertname }}{{ end -}}
+              {{- $failed := match "Failed|Error|NotEstablished" $a0.Labels.alertname -}}
+              {{- $desc := $a0.Annotations.description -}}
+              {{- $firing := len .Alerts.Firing -}}
+              {{- $resolved := len .Alerts.Resolved -}}
+              {{- $showCleared := ne .Receiver "email-event" -}}
+              {{ $name }}
+              {{ if and $failed $desc }}{{ $desc }}
+              {{ end -}}
+              {{ date "02/01/2006 15:04" (tz $tz now) }} ({{ $tz }})
+              {{ if gt $firing 0 -}}
+              {{ range $i, $a := .Alerts.Firing }}{{ if lt $i 20 -}}
+              {{ template "tp_alert" (list . $tz "CURRENT") }}
+              {{- end }}{{ end -}}{{ end -}}
+              {{ if and $showCleared (gt $resolved 0) -}}
+              {{ range $i, $a := .Alerts.Resolved }}{{ if lt $i 3 -}}
+              {{ template "tp_alert" (list . $tz "CLEARED") }}
+              {{- end }}{{ end -}}{{ end -}}
+              {{- if gt $firing 20 }}
+              Showing first 20 of {{ $firing }} events
+              {{- end -}}
+              {{- if and $showCleared (gt $resolved 3) }}
+              Showing 3 of {{ $resolved }} cleared
+              {{- end }}
+              View all: {{ .ExternalURL }}/#/alerts?receiver={{ .Receiver | urlquery }}
+            html: |
+              {{- define "tp_alert" -}}
+              {{- $a := index . 0 -}}
+              {{- $tz := index . 1 -}}
+              {{- $mode := index . 2 -}}
+              {{- $l := $a.Labels -}}
+              {{- $id := $l.alertname -}}
+              {{- if $l.backup_name }}{{ $id = $l.backup_name }}
+              {{- else if $l.snapshot_name }}{{ $id = $l.snapshot_name }}
+              {{- else if $l.appvault_name }}{{ $id = $l.appvault_name }}
+              {{- else if $l.amr_name }}{{ $id = $l.amr_name }}
+              {{- end }}
+              {{- $app := $l.appReference -}}
+              {{- if $l.amr_name }}{{ $app = printf "%s -> %s" $l.sourceApplicationName $l.destinationApplicationRef }}{{ end -}}
+              {{- $task := $l.customresource_kind -}}
+              {{- if eq $l.customresource_kind "AppMirrorRelationship" }}{{ $task = "Replication" }}{{ end -}}
+              {{- if $l.stage }}{{ $task = printf "%s-%s hook" $l.stage $l.action }}{{ end -}}
+              {{- $status := $l.status -}}
+              {{- if eq $status "" }}{{ $status = $l.state }}{{ end -}}
+              {{- $ts := $a.StartsAt -}}
+              {{- if $l.lastTransferredSnapshotCompletionTimestamp }}{{ $ts = toDate "2006-01-02T15:04:05Z07:00" $l.lastTransferredSnapshotCompletionTimestamp }}
+              {{- else if $l.creation_time }}{{ $ts = toDate "2006-01-02T15:04:05Z07:00" $l.creation_time }}
+              {{- end -}}
+              {{- $outcome := "COMPLETED" -}}
+              {{- $ocolor := "#1e8e3e" -}}
+              {{- if eq $mode "CLEARED" }}{{ $outcome = "CLEARED" }}{{ $ocolor = "#5f6368" }}
+              {{- else if match "Failed|Error|NotEstablished" $l.alertname }}{{ $outcome = "FAILED" }}{{ $ocolor = "#d93025" }}{{ end -}}
+              <tr><td colspan="2" style="padding:12px 16px 6px;border-bottom:1px solid #f1f3f4">
+              <span class="badge" style="background:{{ $ocolor }}">{{ $outcome }}</span> <span style="font-weight:600">{{ $id }}</span>
+              <table style="margin-top:5px;font-size:13px;border-collapse:collapse">
+              <tr><td class="k">App</td><td class="v">{{ $app }}</td></tr>
+              <tr><td class="k">Namespace</td><td class="v">{{ $l.cr_namespace }}</td></tr>
+              <tr><td class="k">Task</td><td class="v">{{ $task }}</td></tr>
+              <tr><td class="k">Status</td><td class="v">{{ $status }}</td></tr>
+              <tr><td class="k">Time</td><td class="v">{{ date "02/01/2006 15:04" (tz $tz $ts) }}</td></tr>
+              {{- if $l.lastTransferredSnapshotName }}
+              <tr><td class="k">Snapshot</td><td class="v">{{ $l.lastTransferredSnapshotName }}</td></tr>
+              {{- end }}
+              {{- if $l.error }}
+              <tr><td class="k">Error</td><td class="v" style="color:#d93025">{{ $l.error }}</td></tr>
+              {{- end }}
+              </table>
+              </td></tr>
+              {{- end -}}
+              {{- $tz := "Asia/Bangkok" -}}
+              {{- $a0 := index .Alerts 0 -}}
+              {{- $name := $a0.Annotations.summary -}}
+              {{- if eq $name "" }}{{ $name = $a0.Labels.alertname }}{{ end -}}
+              {{- $failed := match "Failed|Error|NotEstablished" $a0.Labels.alertname -}}
+              {{- $desc := $a0.Annotations.description -}}
+              {{- $firing := len .Alerts.Firing -}}
+              {{- $resolved := len .Alerts.Resolved -}}
+              {{- $showCleared := ne .Receiver "email-event" -}}
+              {{- $color := "#1e8e3e" -}}
+              {{- if $failed }}{{ $color = "#d93025" }}{{ end -}}
+              <!DOCTYPE html>
+              <html>
+              <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width,initial-scale=1">
+              <title>{{ $name }}</title>
+              <style>
+              body{margin:0;padding:16px;background:#f5f6f7;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:#202124}
+              .card{max-width:760px;margin:0 auto;background:#fff;border:1px solid #e8eaed;border-radius:8px;overflow:hidden}
+              .hdr{padding:12px 16px;font-weight:600;font-size:15px;border-bottom:1px solid #e8eaed}
+              .desc{padding:8px 16px;font-size:13px;color:#5f6368;border-bottom:1px solid #e8eaed}
+              .sub{padding:8px 16px;font-size:12px;color:#5f6368;border-bottom:1px solid #e8eaed}
+              table{width:100%;border-collapse:collapse}
+              .badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:11px;color:#fff;margin-right:6px;vertical-align:1px}
+              .k{padding:1px 14px 1px 0;color:#80868b;white-space:nowrap;vertical-align:top}
+              .v{padding:1px 0;color:#3c4043}
+              .foot{padding:10px 16px;font-size:12px;color:#5f6368;border-top:1px solid #e8eaed}
+              a{color:#1a73e8;text-decoration:none}
+              </style>
+              </head>
+              <body>
+              <div class="card">
+              <div class="hdr" style="color:{{ $color }}">{{ $name }}</div>
+              {{- if and $failed $desc }}
+              <div class="desc">{{ $desc }}</div>
+              {{- end }}
+              <div class="sub">{{ date "02/01/2006 15:04" (tz $tz now) }} ({{ $tz }})</div>
+              <table>
+              {{ range $i, $a := .Alerts.Firing }}{{ if lt $i 20 -}}
+              {{ template "tp_alert" (list . $tz "CURRENT") }}
+              {{- end }}{{ end }}
+              {{ range $i, $a := .Alerts.Resolved }}{{ if lt $i 3 -}}
+              {{ template "tp_alert" (list . $tz "CLEARED") }}
+              {{- end }}{{ end }}
+              </table>
+              {{- if gt $firing 20 }}
+              <div class="foot">Showing first 20 of {{ $firing }} events</div>
+              {{- end }}
+              {{- if and $showCleared (gt $resolved 3) }}
+              <div class="foot">Showing 3 of {{ $resolved }} cleared</div>
+              {{- end }}
+              <div class="foot"><a href="{{ .ExternalURL }}/#/alerts?receiver={{ .Receiver | urlquery }}">View all in Alertmanager</a></div>
+              </div>
+              </body>
+              </html>
+
+
+      # ─────────────────────────────────────────────────────────────────
+      # email-alert — alert ที่ severity=critical|warning (ปัญหา) และแจ้งเมื่อหายแล้ว
+      # ─────────────────────────────────────────────────────────────────
+      - name: email-alert
+        email_configs:
+          - to: 'trident-protect@example.com'
+            send_resolved: true
+            headers:
+              subject: '[Trident Protect] {{ $a0 := index .Alerts 0 }}{{ $n := $a0.Annotations.summary }}{{ if eq $n "" }}{{ $n = $a0.Labels.alertname }}{{ end }}{{ $c := len .Alerts.Firing }}{{ if eq $c 0 }}{{ $c = len .Alerts.Resolved }}{{ end }}{{ $n }} - {{ $c }} {{ if eq $c 1 }}event{{ else }}events{{ end }}'
+            # ⚠️ template ชุดนี้ต้องตรงกับของอีก receiver ทุกบรรทัด
+            #    แก้ชุดเดียวแล้วคัดลอกไปอีกชุด
+            text: |
+              {{- define "tp_alert" -}}
+              {{- $a := index . 0 -}}
+              {{- $tz := index . 1 -}}
+              {{- $mode := index . 2 -}}
+              {{- $l := $a.Labels -}}
+              {{- $id := $l.alertname -}}
+              {{- if $l.backup_name }}{{ $id = $l.backup_name }}
+              {{- else if $l.snapshot_name }}{{ $id = $l.snapshot_name }}
+              {{- else if $l.appvault_name }}{{ $id = $l.appvault_name }}
+              {{- else if $l.amr_name }}{{ $id = $l.amr_name }}
+              {{- end }}
+              {{- $app := $l.appReference -}}
+              {{- if $l.amr_name }}{{ $app = printf "%s -> %s" $l.sourceApplicationName $l.destinationApplicationRef }}{{ end -}}
+              {{- $task := $l.customresource_kind -}}
+              {{- if eq $l.customresource_kind "AppMirrorRelationship" }}{{ $task = "Replication" }}{{ end -}}
+              {{- if $l.stage }}{{ $task = printf "%s-%s hook" $l.stage $l.action }}{{ end -}}
+              {{- $status := $l.status -}}
+              {{- if eq $status "" }}{{ $status = $l.state }}{{ end -}}
+              {{- $ts := $a.StartsAt -}}
+              {{- if $l.lastTransferredSnapshotCompletionTimestamp }}{{ $ts = toDate "2006-01-02T15:04:05Z07:00" $l.lastTransferredSnapshotCompletionTimestamp }}
+              {{- else if $l.creation_time }}{{ $ts = toDate "2006-01-02T15:04:05Z07:00" $l.creation_time }}
+              {{- end -}}
+              {{- $outcome := "COMPLETED" -}}
+              {{- if eq $mode "CLEARED" }}{{ $outcome = "CLEARED" }}
+              {{- else if match "Failed|Error|NotEstablished" $l.alertname }}{{ $outcome = "FAILED" }}{{ end }}
+              {{ $extra := "" -}}
+              {{ if $l.lastTransferredSnapshotName }}{{ $extra = printf "\n   Snapshot   %s" $l.lastTransferredSnapshotName }}{{ end -}}
+              {{ if $l.error }}{{ $extra = printf "%s\n   Error      %s" $extra $l.error }}{{ end -}}
+              {{ $outcome }}  {{ $id }}
+                 App        {{ $app }}
+                 Namespace  {{ $l.cr_namespace }}
+                 Task       {{ $task }}
+                 Status     {{ $status }}
+                 Time       {{ date "02/01/2006 15:04" (tz $tz $ts) }}{{ $extra }}
+              {{ end }}
+              {{- $tz := "Asia/Bangkok" -}}
+              {{- $a0 := index .Alerts 0 -}}
+              {{- $name := $a0.Annotations.summary -}}
+              {{- if eq $name "" }}{{ $name = $a0.Labels.alertname }}{{ end -}}
+              {{- $failed := match "Failed|Error|NotEstablished" $a0.Labels.alertname -}}
+              {{- $desc := $a0.Annotations.description -}}
+              {{- $firing := len .Alerts.Firing -}}
+              {{- $resolved := len .Alerts.Resolved -}}
+              {{- $showCleared := ne .Receiver "email-event" -}}
+              {{ $name }}
+              {{ if and $failed $desc }}{{ $desc }}
+              {{ end -}}
+              {{ date "02/01/2006 15:04" (tz $tz now) }} ({{ $tz }})
+              {{ if gt $firing 0 -}}
+              {{ range $i, $a := .Alerts.Firing }}{{ if lt $i 20 -}}
+              {{ template "tp_alert" (list . $tz "CURRENT") }}
+              {{- end }}{{ end -}}{{ end -}}
+              {{ if and $showCleared (gt $resolved 0) -}}
+              {{ range $i, $a := .Alerts.Resolved }}{{ if lt $i 3 -}}
+              {{ template "tp_alert" (list . $tz "CLEARED") }}
+              {{- end }}{{ end -}}{{ end -}}
+              {{- if gt $firing 20 }}
+              Showing first 20 of {{ $firing }} events
+              {{- end -}}
+              {{- if and $showCleared (gt $resolved 3) }}
+              Showing 3 of {{ $resolved }} cleared
+              {{- end }}
+              View all: {{ .ExternalURL }}/#/alerts?receiver={{ .Receiver | urlquery }}
+            html: |
+              {{- define "tp_alert" -}}
+              {{- $a := index . 0 -}}
+              {{- $tz := index . 1 -}}
+              {{- $mode := index . 2 -}}
+              {{- $l := $a.Labels -}}
+              {{- $id := $l.alertname -}}
+              {{- if $l.backup_name }}{{ $id = $l.backup_name }}
+              {{- else if $l.snapshot_name }}{{ $id = $l.snapshot_name }}
+              {{- else if $l.appvault_name }}{{ $id = $l.appvault_name }}
+              {{- else if $l.amr_name }}{{ $id = $l.amr_name }}
+              {{- end }}
+              {{- $app := $l.appReference -}}
+              {{- if $l.amr_name }}{{ $app = printf "%s -> %s" $l.sourceApplicationName $l.destinationApplicationRef }}{{ end -}}
+              {{- $task := $l.customresource_kind -}}
+              {{- if eq $l.customresource_kind "AppMirrorRelationship" }}{{ $task = "Replication" }}{{ end -}}
+              {{- if $l.stage }}{{ $task = printf "%s-%s hook" $l.stage $l.action }}{{ end -}}
+              {{- $status := $l.status -}}
+              {{- if eq $status "" }}{{ $status = $l.state }}{{ end -}}
+              {{- $ts := $a.StartsAt -}}
+              {{- if $l.lastTransferredSnapshotCompletionTimestamp }}{{ $ts = toDate "2006-01-02T15:04:05Z07:00" $l.lastTransferredSnapshotCompletionTimestamp }}
+              {{- else if $l.creation_time }}{{ $ts = toDate "2006-01-02T15:04:05Z07:00" $l.creation_time }}
+              {{- end -}}
+              {{- $outcome := "COMPLETED" -}}
+              {{- $ocolor := "#1e8e3e" -}}
+              {{- if eq $mode "CLEARED" }}{{ $outcome = "CLEARED" }}{{ $ocolor = "#5f6368" }}
+              {{- else if match "Failed|Error|NotEstablished" $l.alertname }}{{ $outcome = "FAILED" }}{{ $ocolor = "#d93025" }}{{ end -}}
+              <tr><td colspan="2" style="padding:12px 16px 6px;border-bottom:1px solid #f1f3f4">
+              <span class="badge" style="background:{{ $ocolor }}">{{ $outcome }}</span> <span style="font-weight:600">{{ $id }}</span>
+              <table style="margin-top:5px;font-size:13px;border-collapse:collapse">
+              <tr><td class="k">App</td><td class="v">{{ $app }}</td></tr>
+              <tr><td class="k">Namespace</td><td class="v">{{ $l.cr_namespace }}</td></tr>
+              <tr><td class="k">Task</td><td class="v">{{ $task }}</td></tr>
+              <tr><td class="k">Status</td><td class="v">{{ $status }}</td></tr>
+              <tr><td class="k">Time</td><td class="v">{{ date "02/01/2006 15:04" (tz $tz $ts) }}</td></tr>
+              {{- if $l.lastTransferredSnapshotName }}
+              <tr><td class="k">Snapshot</td><td class="v">{{ $l.lastTransferredSnapshotName }}</td></tr>
+              {{- end }}
+              {{- if $l.error }}
+              <tr><td class="k">Error</td><td class="v" style="color:#d93025">{{ $l.error }}</td></tr>
+              {{- end }}
+              </table>
+              </td></tr>
+              {{- end -}}
+              {{- $tz := "Asia/Bangkok" -}}
+              {{- $a0 := index .Alerts 0 -}}
+              {{- $name := $a0.Annotations.summary -}}
+              {{- if eq $name "" }}{{ $name = $a0.Labels.alertname }}{{ end -}}
+              {{- $failed := match "Failed|Error|NotEstablished" $a0.Labels.alertname -}}
+              {{- $desc := $a0.Annotations.description -}}
+              {{- $firing := len .Alerts.Firing -}}
+              {{- $resolved := len .Alerts.Resolved -}}
+              {{- $showCleared := ne .Receiver "email-event" -}}
+              {{- $color := "#1e8e3e" -}}
+              {{- if $failed }}{{ $color = "#d93025" }}{{ end -}}
+              <!DOCTYPE html>
+              <html>
+              <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width,initial-scale=1">
+              <title>{{ $name }}</title>
+              <style>
+              body{margin:0;padding:16px;background:#f5f6f7;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:#202124}
+              .card{max-width:760px;margin:0 auto;background:#fff;border:1px solid #e8eaed;border-radius:8px;overflow:hidden}
+              .hdr{padding:12px 16px;font-weight:600;font-size:15px;border-bottom:1px solid #e8eaed}
+              .desc{padding:8px 16px;font-size:13px;color:#5f6368;border-bottom:1px solid #e8eaed}
+              .sub{padding:8px 16px;font-size:12px;color:#5f6368;border-bottom:1px solid #e8eaed}
+              table{width:100%;border-collapse:collapse}
+              .badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:11px;color:#fff;margin-right:6px;vertical-align:1px}
+              .k{padding:1px 14px 1px 0;color:#80868b;white-space:nowrap;vertical-align:top}
+              .v{padding:1px 0;color:#3c4043}
+              .foot{padding:10px 16px;font-size:12px;color:#5f6368;border-top:1px solid #e8eaed}
+              a{color:#1a73e8;text-decoration:none}
+              </style>
+              </head>
+              <body>
+              <div class="card">
+              <div class="hdr" style="color:{{ $color }}">{{ $name }}</div>
+              {{- if and $failed $desc }}
+              <div class="desc">{{ $desc }}</div>
+              {{- end }}
+              <div class="sub">{{ date "02/01/2006 15:04" (tz $tz now) }} ({{ $tz }})</div>
+              <table>
+              {{ range $i, $a := .Alerts.Firing }}{{ if lt $i 20 -}}
+              {{ template "tp_alert" (list . $tz "CURRENT") }}
+              {{- end }}{{ end }}
+              {{ range $i, $a := .Alerts.Resolved }}{{ if lt $i 3 -}}
+              {{ template "tp_alert" (list . $tz "CLEARED") }}
+              {{- end }}{{ end }}
+              </table>
+              {{- if gt $firing 20 }}
+              <div class="foot">Showing first 20 of {{ $firing }} events</div>
+              {{- end }}
+              {{- if and $showCleared (gt $resolved 3) }}
+              <div class="foot">Showing 3 of {{ $resolved }} cleared</div>
+              {{- end }}
+              <div class="foot"><a href="{{ .ExternalURL }}/#/alerts?receiver={{ .Receiver | urlquery }}">View all in Alertmanager</a></div>
+              </div>
+              </body>
+              </html>
+
+

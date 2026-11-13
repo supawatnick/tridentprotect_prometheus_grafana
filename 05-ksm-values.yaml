@@ -12,9 +12,20 @@
 #   ServiceMonitor trident-protect-kube-state-metrics
 #   ConfigMap      trident-protect-kube-state-metrics-customresourcestate-config
 #
-# ⚠️ PRODUCTION: ไฟล์นี้ไม่ต้องแก้ — เป็นชนิด CR ของ Trident Protect ที่กำหนดตายตัว
+# ⚠️ PRODUCTION: ชนิด CR ของ Trident Protect เป็นชนิดที่กำหนดตายตัว ไม่ต้องเปลี่ยน
 #    (ยกเว้น namespace/ชื่อ release ในคำสั่ง helm ด้านบน
 #     ซึ่งต้องตรงกับชื่อ service ที่เอาไปอ้างในไฟล์อื่น)
+#
+#    ที่เพิ่มเข้ามาคือ label `cr_namespace` = namespace จริงของ CR
+#    ใช้ในอีเมลแจ้งเตือนและใช้กรอง dashboard ได้
+#    ⚠️ ห้ามใช้ชื่อ label `namespace` — Prometheus Operator จะเติม
+#       label namespace = namespace ของ target (prometheus) ทับค่านั้นเสมอ
+#       ดูเหตุผลใน 19-alertmanager.md หัวข้อ "รูปแบบอีเมล"
+#
+#    หลังแก้ไฟล์นี้ต้อง restart kube-state-metrics เพราะมันอ่าน config ตอน startup
+#       helm upgrade trident-protect prometheus-community/kube-state-metrics \
+#         -f 05-ksm-values.yaml --version 9.0.0 -n prometheus
+#       kubectl -n prometheus rollout restart deployment/trident-protect-kube-state-metrics
 # ---------------------------------------------------------------------------
 # จุดที่แก้จากตัวอย่างในเอกสาร/บล็อก
 #
@@ -47,6 +58,11 @@ customResourceState:
             backup_uid: [metadata, uid]
             backup_name: [metadata, name]
             creation_time: [metadata, creationTimestamp]
+            # namespace ของ CR จริง
+            # ⚠️ ห้ามใช้ชื่อ label `namespace` เพราะ Prometheus Operator จะเติม
+            #    label namespace = namespace ของ target ทับค่านี้เสมอ
+            #    (relabel_configs: source_labels=[__meta_kubernetes_namespace])
+            cr_namespace: [metadata, namespace]
           metrics:
             - name: backup_info
               help: "Exposes details about the Backup state"
@@ -71,6 +87,11 @@ customResourceState:
             snapshot_uid: [metadata, uid]
             snapshot_name: [metadata, name]
             creation_time: [metadata, creationTimestamp]
+            # namespace ของ CR จริง
+            # ⚠️ ห้ามใช้ชื่อ label `namespace` เพราะ Prometheus Operator จะเติม
+            #    label namespace = namespace ของ target ทับค่านี้เสมอ
+            #    (relabel_configs: source_labels=[__meta_kubernetes_namespace])
+            cr_namespace: [metadata, namespace]
           metrics:
             - name: snapshot_info
               help: "Exposes details about the Snapshot state"
@@ -95,6 +116,11 @@ customResourceState:
             ehr_uid: [metadata, uid]
             ehr_name: [metadata, name]
             creation_time: [metadata, creationTimestamp]
+            # namespace ของ CR จริง
+            # ⚠️ ห้ามใช้ชื่อ label `namespace` เพราะ Prometheus Operator จะเติม
+            #    label namespace = namespace ของ target ทับค่านี้เสมอ
+            #    (relabel_configs: source_labels=[__meta_kubernetes_namespace])
+            cr_namespace: [metadata, namespace]
           metrics:
             - name: ehr_info
               help: "Exposes details about the Exec Hook state"
@@ -120,6 +146,12 @@ customResourceState:
           labelsFromPath:
             appvault_uid: [metadata, uid]
             appvault_name: [metadata, name]
+            creation_time: [metadata, creationTimestamp]
+            # namespace ของ CR จริง
+            # ⚠️ ห้ามใช้ชื่อ label `namespace` เพราะ Prometheus Operator จะเติม
+            #    label namespace = namespace ของ target ทับค่านี้เสมอ
+            #    (relabel_configs: source_labels=[__meta_kubernetes_namespace])
+            cr_namespace: [metadata, namespace]
           metrics:
             - name: appvault_info
               help: "Exposes details about the AppVault state"
@@ -143,6 +175,11 @@ customResourceState:
             amr_uid: [metadata, uid]
             amr_name: [metadata, name]
             creation_time: [metadata, creationTimestamp]
+            # namespace ของ CR จริง
+            # ⚠️ ห้ามใช้ชื่อ label `namespace` เพราะ Prometheus Operator จะเติม
+            #    label namespace = namespace ของ target ทับค่านี้เสมอ
+            #    (relabel_configs: source_labels=[__meta_kubernetes_namespace])
+            cr_namespace: [metadata, namespace]
           metrics:
             - name: app_mirror_relationship_info
               help: "Exposes details about the AppMirrorRelationship state"

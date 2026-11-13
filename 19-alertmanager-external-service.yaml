@@ -1,0 +1,29 @@
+# External access to the Alertmanager web UI through MetalLB.
+#
+# The Operator creates the headless Service alertmanager-operated, which is
+# ClusterIP only. This is a separate Service that selects the same pods.
+#
+# The web port of the Alertmanager pod is named after the Alertmanager CR field
+# spec.portName, which defaults to "web" (pkg/alertmanager/statefulset.go,
+# defaultPortName). kube-prometheus-stack sets portName: http-web explicitly,
+# which is why its services use that name instead.
+#
+# The address is assigned automatically and is not locked in this manifest.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager-external
+  namespace: prometheus
+  annotations:
+    metallb.io/address-pool: external-pool
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/instance: alertmanager
+  ports:
+    - name: web
+      port: 9093
+      targetPort: web
+      protocol: TCP

@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "ภาพรวมสถานะ Trident Protect ใน cluster: Backup, Snapshot, AppVault และ AppMirrorRelationship\nข้อมูลมาจาก kube-state-metrics ผ่าน Prometheus Operator\n\nหมายเหตุ: metric ของ KSM ไม่มี label ของ namespace ของ CR จึงกรองตาม namespace ของ application ไม่ได้\nมีได้แค่ label appReference ซึ่งใช้ในตัวแปร Application ด้านบน",
+  "description": "ภาพรวมสถานะ Trident Protect ใน cluster: Backup, Snapshot, AppVault และ AppMirrorRelationship\nข้อมูลมาจาก kube-state-metrics ผ่าน Prometheus Operator\n\nหมายเหตุ: metric ของ KSM มี label cr_namespace ที่เป็น namespace จริงของ CR\nใช้กรองตาม namespace ของ application ได้ (label namespace ถูก Operator เขียนทับเสมอ)",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,

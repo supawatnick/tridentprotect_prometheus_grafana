@@ -1,0 +1,102 @@
+# Mailpit — debug SMTP server สำหรับทดสอบ Alertmanager ใน lab
+#
+# Alertmanager ส่งอีเมลจริงไม่ได้ใน environment นี้ จึงใช้ Mailpit รับอีเมลแทน
+# แล้วดูผลได้ที่ web UI
+#
+# ⚠️ PRODUCTION: ห้ามใช้ไฟล์นี้ใน production
+#    ให้เปลี่ยนเป็น SMTP จริงพร้อม credential ที่ถูกต้องในไฟล์ 19-alertmanager-config.yaml
+#
+# namespace : mailpit
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mailpit
+  labels:
+    app.kubernetes.io/name: mailpit
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailpit
+  namespace: mailpit
+  labels:
+    app.kubernetes.io/name: mailpit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mailpit
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mailpit
+    spec:
+      containers:
+        - name: mailpit
+          image: axllent/mailpit:v1.21
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: smtp
+              containerPort: 1025
+              protocol: TCP
+            - name: http
+              containerPort: 8025
+              protocol: TCP
+          env:
+            # รับการเชื่อมต่อ SMTP ที่ไม่มี authentication ให้ Alertmanager ส่งได้เลย
+            - name: MP_SMTP_AUTH_ACCEPT_ANY
+              value: "1"
+            - name: MP_SMTP_AUTH_ALLOW_INSECURE
+              value: "1"
+            - name: MP_SMTP_BIND_ADDR
+              value: "0.0.0.0:1025"
+            - name: MP_HTTP_BIND_ADDR
+              value: "0.0.0.0:8025"
+            - name: MP_MAX_MESSAGES
+              value: "500"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+# SMTP สำหรับ Alertmanager ใช้ภายใน cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit-smtp
+  namespace: mailpit
+  labels:
+    app.kubernetes.io/name: mailpit
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mailpit
+  ports:
+    - name: smtp
+      port: 1025
+      targetPort: smtp
+      protocol: TCP
+---
+# Web UI สำหรับดูอีเมลที่ Alertmanager ส่งเข้ามา
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit-http
+  namespace: mailpit
+  labels:
+    app.kubernetes.io/name: mailpit
+  annotations:
+    metallb.io/address-pool: external-pool
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: mailpit
+  ports:
+    - name: http
+      port: 8025
+      targetPort: http
+      protocol: TCP

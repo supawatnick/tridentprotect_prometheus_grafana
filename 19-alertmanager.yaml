@@ -1,0 +1,54 @@
+# Alertmanager สำหรับ Trident Protect monitoring
+#
+# Prometheus Operator จะสร้าง StatefulSet, Pod และ Service ชื่อ alertmanager-operated
+# ให้เอง เราสร้างแค่ CR และ ServiceAccount
+#
+# configSecret ชี้ไปที่ Secret ที่มี key alertmanager.yaml (ไฟล์ 19-alertmanager-config.yaml)
+#
+# namespace : prometheus
+#
+# ⚠️ PRODUCTION:
+#   - replicas: 3
+#       สำหรับ HA ถ้า pod ตาย alert ยังถูกส่งต่อได้
+#   - storage:
+#       volumeClaimTemplate: + storageClassName: <ชื่อ StorageClass>
+#       ทำให้ alert และ silence ไม่หายเมื่อ pod restart
+#   - retention: 120h
+#       เก็บประวัติย้อนหลังได้นานขึ้น
+#   - externalUrl: https://alertmanager.example.com
+#       ลิงก์ในอีเมลจะชี้ไปยัง URL ที่ถูกต้อง
+#   - web:
+#       tlsConfig: + httpServer: {tlsCert: ...}
+#       เปิด UI ผ่าน HTTPS
+#   - secrets: [smtp-credentials]
+#       ถ้าจะเก็บ SMTP password เป็นไฟล์แทนการใส่ใน config
+#       Secret จะถูก mount ที่ /etc/alertmanager/secrets/smtp-credentials
+#       แล้วอ้างด้วย smtp_auth_password_file ในไฟล์ 19-alertmanager-config.yaml
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alertmanager
+  namespace: prometheus
+  labels:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/instance: alertmanager
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Alertmanager
+metadata:
+  name: alertmanager
+  namespace: prometheus
+  labels:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/instance: alertmanager
+spec:
+  replicas: 1
+  serviceAccountName: alertmanager
+  configSecret: alertmanager-config
+  retention: 24h
+  # URL ที่ใช้ในลิงก์ของอีเมล (เช่น "ดูทั้งหมด") ต้องตรงกับ IP ที่ MetalLB
+  # จ่ายให้ Service alertmanager-external ในไฟล์ 19-alertmanager-external-service.yaml
+  # ถ้า Service ถูกลบแล้วสร้างใหม่แล้วได้ IP อื่น ต้องแก้ค่านี้ตาม
+  # ใน production ให้ใช้ DNS จริง เช่น https://alertmanager.example.com
+  externalUrl: http://10.10.110.114:9093

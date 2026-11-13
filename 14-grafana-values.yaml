@@ -13,7 +13,7 @@
 persistence:
   enabled: true
   type: pvc
-  storageClassName: sc-clus2-nfs
+  storageClassName: sc-clus1-nfs
   accessModes:
     - ReadWriteOnce
   size: 10Gi
