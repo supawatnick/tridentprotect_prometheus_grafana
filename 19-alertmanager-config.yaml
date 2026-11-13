@@ -69,7 +69,7 @@ stringData:
       smtp_require_tls: false
 
     route:
-      group_by: ['alertname']
+      group_by: ['alertname', 'cr_namespace', 'tp_application']
       group_wait: 30s
       group_interval: 5m
       repeat_interval: 12h
@@ -81,6 +81,7 @@ stringData:
         - receiver: email-event
           matchers:
             - 'severity="info"'
+          group_interval: 30s
 
     receivers:
       # ─────────────────────────────────────────────────────────────────
@@ -91,7 +92,7 @@ stringData:
           - to: 'trident-protect@example.com'
             send_resolved: false
             headers:
-              subject: '[Trident Protect] {{ $a0 := index .Alerts 0 }}{{ $n := $a0.Annotations.summary }}{{ if eq $n "" }}{{ $n = $a0.Labels.alertname }}{{ end }}{{ $c := len .Alerts.Firing }}{{ if eq $c 0 }}{{ $c = len .Alerts.Resolved }}{{ end }}{{ $n }} - {{ $c }} {{ if eq $c 1 }}event{{ else }}events{{ end }}'
+              subject: '[Trident Protect][{{ .Status }}] {{ .GroupLabels.cr_namespace }} | {{ if .GroupLabels.tp_application }}{{ .GroupLabels.tp_application }}{{ else }}(no application){{ end }} | {{ $a0 := index .Alerts 0 }}{{ $n := $a0.Annotations.summary }}{{ if eq $n "" }}{{ $n = $a0.Labels.alertname }}{{ end }}{{ $c := len .Alerts.Firing }}{{ if eq $c 0 }}{{ $c = len .Alerts.Resolved }}{{ end }}{{ $n }} - {{ $c }} {{ if eq $c 1 }}event{{ else }}events{{ end }}'
             # ⚠️ template ชุดนี้ต้องตรงกับของอีก receiver ทุกบรรทัด
             #    แก้ชุดเดียวแล้วคัดลอกไปอีกชุด
             text: |
@@ -106,8 +107,9 @@ stringData:
               {{- else if $l.appvault_name }}{{ $id = $l.appvault_name }}
               {{- else if $l.amr_name }}{{ $id = $l.amr_name }}
               {{- end }}
-              {{- $app := $l.appReference -}}
-              {{- if $l.amr_name }}{{ $app = printf "%s -> %s" $l.sourceApplicationName $l.destinationApplicationRef }}{{ end -}}
+              {{- $app := $l.tp_application -}}
+              {{- if not $app }}{{ $app = $l.appReference }}{{ end -}}
+              {{- if and $l.amr_name (not $app) }}{{ $app = $l.sourceApplicationName }}{{ end -}}
               {{- $task := $l.customresource_kind -}}
               {{- if eq $l.customresource_kind "AppMirrorRelationship" }}{{ $task = "Replication" }}{{ end -}}
               {{- if $l.stage }}{{ $task = printf "%s-%s hook" $l.stage $l.action }}{{ end -}}
@@ -157,7 +159,6 @@ stringData:
               {{- if and $showCleared (gt $resolved 3) }}
               Showing 3 of {{ $resolved }} cleared
               {{- end }}
-              View all: {{ .ExternalURL }}/#/alerts?receiver={{ .Receiver | urlquery }}
             html: |
               {{- define "tp_alert" -}}
               {{- $a := index . 0 -}}
@@ -170,8 +171,9 @@ stringData:
               {{- else if $l.appvault_name }}{{ $id = $l.appvault_name }}
               {{- else if $l.amr_name }}{{ $id = $l.amr_name }}
               {{- end }}
-              {{- $app := $l.appReference -}}
-              {{- if $l.amr_name }}{{ $app = printf "%s -> %s" $l.sourceApplicationName $l.destinationApplicationRef }}{{ end -}}
+              {{- $app := $l.tp_application -}}
+              {{- if not $app }}{{ $app = $l.appReference }}{{ end -}}
+              {{- if and $l.amr_name (not $app) }}{{ $app = $l.sourceApplicationName }}{{ end -}}
               {{- $task := $l.customresource_kind -}}
               {{- if eq $l.customresource_kind "AppMirrorRelationship" }}{{ $task = "Replication" }}{{ end -}}
               {{- if $l.stage }}{{ $task = printf "%s-%s hook" $l.stage $l.action }}{{ end -}}
@@ -254,7 +256,6 @@ stringData:
               {{- if and $showCleared (gt $resolved 3) }}
               <div class="foot">Showing 3 of {{ $resolved }} cleared</div>
               {{- end }}
-              <div class="foot"><a href="{{ .ExternalURL }}/#/alerts?receiver={{ .Receiver | urlquery }}">View all in Alertmanager</a></div>
               </div>
               </body>
               </html>
@@ -268,7 +269,7 @@ stringData:
           - to: 'trident-protect@example.com'
             send_resolved: true
             headers:
-              subject: '[Trident Protect] {{ $a0 := index .Alerts 0 }}{{ $n := $a0.Annotations.summary }}{{ if eq $n "" }}{{ $n = $a0.Labels.alertname }}{{ end }}{{ $c := len .Alerts.Firing }}{{ if eq $c 0 }}{{ $c = len .Alerts.Resolved }}{{ end }}{{ $n }} - {{ $c }} {{ if eq $c 1 }}event{{ else }}events{{ end }}'
+              subject: '[Trident Protect][{{ .Status }}] {{ .GroupLabels.cr_namespace }} | {{ if .GroupLabels.tp_application }}{{ .GroupLabels.tp_application }}{{ else }}(no application){{ end }} | {{ $a0 := index .Alerts 0 }}{{ $n := $a0.Annotations.summary }}{{ if eq $n "" }}{{ $n = $a0.Labels.alertname }}{{ end }}{{ $c := len .Alerts.Firing }}{{ if eq $c 0 }}{{ $c = len .Alerts.Resolved }}{{ end }}{{ $n }} - {{ $c }} {{ if eq $c 1 }}event{{ else }}events{{ end }}'
             # ⚠️ template ชุดนี้ต้องตรงกับของอีก receiver ทุกบรรทัด
             #    แก้ชุดเดียวแล้วคัดลอกไปอีกชุด
             text: |
@@ -283,8 +284,9 @@ stringData:
               {{- else if $l.appvault_name }}{{ $id = $l.appvault_name }}
               {{- else if $l.amr_name }}{{ $id = $l.amr_name }}
               {{- end }}
-              {{- $app := $l.appReference -}}
-              {{- if $l.amr_name }}{{ $app = printf "%s -> %s" $l.sourceApplicationName $l.destinationApplicationRef }}{{ end -}}
+              {{- $app := $l.tp_application -}}
+              {{- if not $app }}{{ $app = $l.appReference }}{{ end -}}
+              {{- if and $l.amr_name (not $app) }}{{ $app = $l.sourceApplicationName }}{{ end -}}
               {{- $task := $l.customresource_kind -}}
               {{- if eq $l.customresource_kind "AppMirrorRelationship" }}{{ $task = "Replication" }}{{ end -}}
               {{- if $l.stage }}{{ $task = printf "%s-%s hook" $l.stage $l.action }}{{ end -}}
@@ -334,7 +336,6 @@ stringData:
               {{- if and $showCleared (gt $resolved 3) }}
               Showing 3 of {{ $resolved }} cleared
               {{- end }}
-              View all: {{ .ExternalURL }}/#/alerts?receiver={{ .Receiver | urlquery }}
             html: |
               {{- define "tp_alert" -}}
               {{- $a := index . 0 -}}
@@ -347,8 +348,9 @@ stringData:
               {{- else if $l.appvault_name }}{{ $id = $l.appvault_name }}
               {{- else if $l.amr_name }}{{ $id = $l.amr_name }}
               {{- end }}
-              {{- $app := $l.appReference -}}
-              {{- if $l.amr_name }}{{ $app = printf "%s -> %s" $l.sourceApplicationName $l.destinationApplicationRef }}{{ end -}}
+              {{- $app := $l.tp_application -}}
+              {{- if not $app }}{{ $app = $l.appReference }}{{ end -}}
+              {{- if and $l.amr_name (not $app) }}{{ $app = $l.sourceApplicationName }}{{ end -}}
               {{- $task := $l.customresource_kind -}}
               {{- if eq $l.customresource_kind "AppMirrorRelationship" }}{{ $task = "Replication" }}{{ end -}}
               {{- if $l.stage }}{{ $task = printf "%s-%s hook" $l.stage $l.action }}{{ end -}}
@@ -431,7 +433,6 @@ stringData:
               {{- if and $showCleared (gt $resolved 3) }}
               <div class="foot">Showing 3 of {{ $resolved }} cleared</div>
               {{- end }}
-              <div class="foot"><a href="{{ .ExternalURL }}/#/alerts?receiver={{ .Receiver | urlquery }}">View all in Alertmanager</a></div>
               </div>
               </body>
               </html>

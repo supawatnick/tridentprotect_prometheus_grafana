@@ -233,6 +233,5 @@ prometheus:
   monitor:
     enabled: true
     additionalLabels:
-      # ⚠️ PRODUCTION: ต้องตรงกับ spec.serviceMonitorSelector ของ Prometheus ที่ใช้
-      #    (ถ้าเป็น {} → ค่านี้ไม่มีผล / ถ้าเป็น matchLabels → ต้องเปลี่ยนให้ตรง)
-      release: prometheus
+      # ตรงกับ spec.serviceMonitorSelector.matchLabels ในไฟล์ 08 ทั้งสองฉบับ
+      monitoring: trident-protect

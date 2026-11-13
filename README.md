@@ -70,7 +70,7 @@ Run the files in this order. Each step has its own verify block.
 | 9 | `09-prometheus-operator-installation.md` | Install Prometheus Operator and the remaining CRDs |
 | 10 | `10-prometheus-external-service.yaml` | Expose Prometheus through MetalLB |
 | 11 | `13-trident-servicemonitor.yaml` | ServiceMonitor for the Trident CSI metrics |
-| 12 | `14-grafana-install.md`, `14-grafana-values.yaml` | Install Grafana with persistent storage |
+| 12 | `14-grafana-install.md`, `14-grafana-values.yaml`, `14-grafana-external-service-clus1.yaml` | Install Grafana, then optionally expose it through a separate Service (use clus2 files on cluster 2) |
 | 13 | `15-grafana-datasource.md` | Add Prometheus as a Grafana data source |
 | 14 | `16-grafana-dashboard.md`, `16-grafana-dashboard.json` | Import the dashboard from the blog |
 | 15 | `17-trident-protect-dashboard.md`, `17-trident-protect-dashboard.json` | Import the custom dashboard |
@@ -100,11 +100,14 @@ kubectl apply --server-side -f https://raw.githubusercontent.com/prometheus-oper
 kubectl apply --server-side -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.95.1/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagers.yaml
 
 # 2. Prometheus Operator
+kubectl create namespace ${NS} --dry-run=client -o yaml | kubectl apply -f -
 curl -sSL "https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.95.1/bundle.yaml" \
   | sed "s/namespace: default/namespace: ${NS}/g" \
   | kubectl apply --server-side -f -
 
 # 3. kube-state-metrics
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
 kubectl create namespace ${NS} --dry-run=client -o yaml | kubectl apply -f -
 helm install trident-protect -f 05-ksm-values.yaml \
   prometheus-community/kube-state-metrics --version 9.0.0 -n ${NS}
@@ -122,6 +125,7 @@ helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 kubectl create namespace grafana --dry-run=client -o yaml | kubectl apply -f -
 helm install my-grafana grafana/grafana -f 14-grafana-values.yaml --version 10.5.15 -n grafana
+kubectl apply -f 14-grafana-external-service-clus1.yaml
 
 # 7. Alerting
 kubectl apply -f 21-mailpit.yaml
@@ -146,11 +150,11 @@ few files have a `-clus2` variant.
 |---|---|---|
 | External Service | `10-prometheus-external-service.yaml` | `10-prometheus-external-service-clus2.yaml` |
 | Grafana values | `14-grafana-values.yaml` | `14-grafana-values-clus2.yaml` |
+| Grafana External Service | `14-grafana-external-service-clus1.yaml` | `14-grafana-external-service-clus2.yaml` |
 | Custom dashboard | `17-trident-protect-dashboard.json` | `17-trident-protect-dashboard-clus2.json` |
 
 The alerting files `19-*`, `20-alert-rules.yaml` and `21-mailpit.yaml` were written for
-cluster 1 only. `spec.externalUrl` in `19-alertmanager.yaml` holds the MetalLB address of
-the `alertmanager-external` Service and has to match the address that MetalLB assigns.
+cluster 1 only. External UI access is optional; email templates contain no Alertmanager links and the CR does not set an externalUrl. Production must replace the lab SMTP and adapt external access to its network provider.
 
 The two MetalLB pools do not overlap, so both clusters can advertise on the same network
 at the same time.
@@ -183,14 +187,13 @@ Alertmanager, which sends them by email.
 | Alert | Condition | Severity |
 |---|---|---|
 | `BackupFailed`, `SnapshotFailed` | `status="Error"` | critical |
-| `BackupCompleted`, `SnapshotCompleted` | `status="Completed"` and created within the last 5 minutes | info |
+| `BackupCompleted`, `SnapshotCompleted` | Completed series not present at offset 5m (namespace/UID identity) | info |
 | `AppVaultError` | `state="Error"` | critical |
 | `AMRError` | `state="Error"` | critical |
 | `AMRNotEstablished` | not established for more than 10 minutes | warning |
-| `AMRTransferCompleted` | transfer succeeded and the snapshot is newer than 5 minutes | info |
+| `AMRTransferCompleted` | Established transfer snapshot not present at offset 5m (namespace/UID identity) | info |
 
-The route is split by severity, so a normal event never carries the history of the earlier
-rounds:
+Email groups are separated by alertname, cr_namespace and tp_application. Backup/Snapshot use appReference; AMR uses sourceApplicationName. Info groups check for updates every 30s; other groups use 5m. Completed detection can repeat old events when history is missing; delivery is not exactly-once:
 
 | Receiver | Used for | `send_resolved` | Content |
 |---|---|---|---|
@@ -250,14 +253,14 @@ resources, the Operator, the CRDs and the namespaces.
 - **The ServiceMonitor is the integration point.** The `prometheus-config` ConfigMap from the
   blog is not referenced by the Prometheus custom resource and is not mounted into the pod,
   so it has no effect. The kube-state-metrics chart creates a ServiceMonitor and the
-  Prometheus custom resource selects it with `serviceMonitorSelector: {}`.
+  Prometheus custom resource selects it with `serviceMonitorSelector.matchLabels: {monitoring: trident-protect}`.
 - **The `namespace` label on custom resource metrics is not the namespace of the custom
   resource.** Prometheus Operator sets it to the namespace of the scraped target, so the
   namespace of the resource is exposed as `cr_namespace` instead, see
   `05-ksm-values.yaml`.
 - **`creation_time` and `lastTransfer*` are labels.** They cannot be used in arithmetic
   against timestamps, only for ordering and grouping.
-- **Grafana has no authentication.** When it is exposed through MetalLB, restrict network
+- **Grafana access requires explicit review.** When it is exposed through MetalLB, restrict network
   access or place an authenticating reverse proxy in front of it.
 
 ## Deployment log

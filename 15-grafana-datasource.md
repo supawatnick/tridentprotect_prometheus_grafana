@@ -50,13 +50,13 @@ Successfully queried the Prometheus API.
 kube_customresource_backup_info
 ```
 
-ต้องเห็นข้อมูล 18 series
+ตรวจจำนวนและ labels ให้ตรงกับ Backup CR จริง; ถ้าไม่มี Backup อาจไม่มี series นี้
 
 ```promql
 kube_customresource_app_mirror_relationship_info
 ```
 
-ต้องเห็นข้อมูล 1 series
+ตรวจให้ตรงกับ AppMirrorRelationship CR จริง; ถ้าไม่มี AMR อาจไม่มี series นี้
 
 ## ถัดไป
 

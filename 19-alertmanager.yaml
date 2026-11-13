@@ -15,8 +15,6 @@
 #       ทำให้ alert และ silence ไม่หายเมื่อ pod restart
 #   - retention: 120h
 #       เก็บประวัติย้อนหลังได้นานขึ้น
-#   - externalUrl: https://alertmanager.example.com
-#       ลิงก์ในอีเมลจะชี้ไปยัง URL ที่ถูกต้อง
 #   - web:
 #       tlsConfig: + httpServer: {tlsCert: ...}
 #       เปิด UI ผ่าน HTTPS
@@ -47,8 +45,4 @@ spec:
   serviceAccountName: alertmanager
   configSecret: alertmanager-config
   retention: 24h
-  # URL ที่ใช้ในลิงก์ของอีเมล (เช่น "ดูทั้งหมด") ต้องตรงกับ IP ที่ MetalLB
-  # จ่ายให้ Service alertmanager-external ในไฟล์ 19-alertmanager-external-service.yaml
-  # ถ้า Service ถูกลบแล้วสร้างใหม่แล้วได้ IP อื่น ต้องแก้ค่านี้ตาม
-  # ใน production ให้ใช้ DNS จริง เช่น https://alertmanager.example.com
-  externalUrl: http://10.10.110.114:9093
+  # ไม่กำหนด externalUrl เพราะ email templates ไม่มีลิงก์กลับ Alertmanager

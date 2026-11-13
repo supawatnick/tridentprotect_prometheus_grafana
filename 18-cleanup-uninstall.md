@@ -11,6 +11,7 @@ Status: TESTED (`k8s-clus1`, 2026-11-12)
 | กลุ่ม | Resource | วิธีติดตั้ง | วิธีถอน |
 |---|---|---|---|
 | Grafana | `my-grafana` (ns `grafana`) | `helm install` | `helm uninstall` |
+| Grafana External Service | `grafana-external` (ns `grafana`) | `kubectl apply` ตาม cluster | `kubectl delete -f` ตาม cluster |
 | KSM | `trident-protect` (ns `prometheus`) | `helm install` | `helm uninstall` |
 | Prometheus CR | `prometheus/prometheus` | `kubectl apply` | `kubectl delete -f` |
 | Prometheus RBAC | SA + ClusterRole + CRB `prometheus` | `kubectl apply` | `kubectl delete -f` |
@@ -50,6 +51,14 @@ kubectl get crd -o name | grep monitoring.coreos.com
 > ให้ตรวจสอบก่อนว่าเป็นของเราหรือของเดิม ก่อนจะลบ
 
 ## 1. ถอน Grafana
+
+ลบ External Service ที่สร้างแยกจาก Helm โดยเลือกตาม cluster:
+
+```bash
+# cluster 1
+kubectl delete -f 14-grafana-external-service-clus1.yaml --ignore-not-found
+# cluster 2 ใช้ไฟล์ 14-grafana-external-service-clus2.yaml แทน
+```
 
 ```bash
 helm uninstall my-grafana -n grafana
@@ -235,6 +244,7 @@ kubectl delete -f 12-nginx-test-app-clus2.yaml
 |---|---|---|
 | External Service | `10-prometheus-external-service.yaml` | `10-prometheus-external-service-clus2.yaml` |
 | Grafana values | `14-grafana-values.yaml` | `14-grafana-values-clus2.yaml` |
+| Grafana External Service | `14-grafana-external-service-clus1.yaml` | `14-grafana-external-service-clus2.yaml` |
 | Grafana dashboard | `17-trident-protect-dashboard.json` | `17-trident-protect-dashboard-clus2.json` |
 | Blog dashboard | `16-grafana-dashboard.json` | `16-grafana-dashboard.json` (เหมือนกัน) |
 

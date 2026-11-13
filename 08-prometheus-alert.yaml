@@ -29,7 +29,9 @@ spec:
   serviceAccountName: prometheus
   scrapeInterval: 15s
   serviceMonitorNamespaceSelector: {}
-  serviceMonitorSelector: {}
+  serviceMonitorSelector:
+    matchLabels:
+      monitoring: trident-protect
   podMonitorSelector: {}
 
   # ───────────────────────────────────────────────────────────────────────────

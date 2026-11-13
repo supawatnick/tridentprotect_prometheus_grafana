@@ -5,7 +5,8 @@
 # Differences from the blog:
 #   - persistence is enabled on the first install instead of a second helm upgrade
 #   - storage class is the Trident NFS backend of this cluster
-#   - the Service is exposed through MetalLB instead of port-forward only
+#   - external access is configured separately in 14-grafana-external-service-clus1.yaml
+#   - no Service overrides here; the chart creates its default internal Service
 #
 # The Prometheus data source and the dashboard are added through the Grafana UI
 # like in the blog, so no datasources, dashboards or sidecar settings are needed.
@@ -17,11 +18,3 @@ persistence:
   accessModes:
     - ReadWriteOnce
   size: 10Gi
-
-service:
-  enabled: true
-  type: LoadBalancer
-  annotations:
-    metallb.io/address-pool: external-pool
-  port: 80
-  targetPort: 3000

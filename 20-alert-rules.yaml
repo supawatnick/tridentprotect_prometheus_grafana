@@ -43,22 +43,24 @@ spec:
           for: 5s
           labels:
             severity: critical
+            tp_application: '{{ $labels.appReference }}'
           annotations:
             summary: "Backup failed"
             description: "A backup has failed."
 
-        # แจ้งเฉพาะ backup ที่เพิ่งเกิดใหม่ ไม่แจ้งซ้ำของเก่าที่ยังอยู่
-        # ใช้ unless + offset เพื่อตัด series ที่มีอยู่แล้วเมื่อ 5 นาทีก่อนออก
-        # offset ต้องเท่ากับรอบการทำงานของ schedule (ทุก 5 นาที) ไม่งั้นอีเมลจะ
-        # รวม event ของหลายรอบไว้ด้วยกัน
+        # ตรวจ Completed ที่ไม่พบในข้อมูล 5 นาทีก่อน แยก identity ตาม namespace/UID
+        # หน้าต่าง 5 นาทีไม่จำเป็นต้องเท่ากับ schedule ของ application
+        # ข้อจำกัดของ Completed rules ทั้งหมด: history ขาดอาจแจ้งข้อมูลเก่าซ้ำ
+        # จึงไม่รับประกันส่งครั้งเดียวต่อ event; ไม่ใช่การเทียบ completion timestamp
         - alert: BackupCompleted
           expr: |
             kube_customresource_backup_info{status="Completed"}
-              unless on(backup_name)
-              count by (backup_name) (kube_customresource_backup_info{status="Completed"} offset 5m)
+              unless on(cr_namespace, backup_uid)
+              count by (cr_namespace, backup_uid) (kube_customresource_backup_info{status="Completed"} offset 5m)
           for: 5s
           labels:
             severity: info
+            tp_application: '{{ $labels.appReference }}'
           annotations:
             summary: "Backup completed"
             description: "A backup has completed successfully."
@@ -73,6 +75,7 @@ spec:
           for: 5s
           labels:
             severity: critical
+            tp_application: '{{ $labels.appReference }}'
           annotations:
             summary: "Snapshot failed"
             description: "A snapshot has failed."
@@ -80,11 +83,12 @@ spec:
         - alert: SnapshotCompleted
           expr: |
             kube_customresource_snapshot_info{status="Completed"}
-              unless on(snapshot_name)
-              count by (snapshot_name) (kube_customresource_snapshot_info{status="Completed"} offset 5m)
+              unless on(cr_namespace, snapshot_uid)
+              count by (cr_namespace, snapshot_uid) (kube_customresource_snapshot_info{status="Completed"} offset 5m)
           for: 5s
           labels:
             severity: info
+            tp_application: '{{ $labels.appReference }}'
           annotations:
             summary: "Snapshot completed"
             description: "A snapshot has completed successfully."
@@ -113,6 +117,7 @@ spec:
           for: 5s
           labels:
             severity: critical
+            tp_application: '{{ $labels.sourceApplicationName }}'
           annotations:
             summary: "AppMirrorRelationship error"
             description: "AppMirrorRelationship {{ $labels.amr_name }} is in Error state."
@@ -123,6 +128,7 @@ spec:
           for: 10m
           labels:
             severity: warning
+            tp_application: '{{ $labels.sourceApplicationName }}'
           annotations:
             summary: "AppMirrorRelationship is not established"
             description: "AppMirrorRelationship {{ $labels.amr_name }} has remained in state {{ $labels.state }} for more than 10 minutes."
@@ -131,13 +137,14 @@ spec:
         - alert: AMRTransferCompleted
           expr: |
             kube_customresource_app_mirror_relationship_info{state="Established",lastTransferredSnapshotName!=""}
-              unless on(amr_name, lastTransferredSnapshotName)
-              count by (amr_name, lastTransferredSnapshotName) (
+              unless on(cr_namespace, amr_uid, lastTransferredSnapshotName)
+              count by (cr_namespace, amr_uid, lastTransferredSnapshotName) (
                 kube_customresource_app_mirror_relationship_info{state="Established",lastTransferredSnapshotName!=""} offset 5m
               )
           for: 5s
           labels:
             severity: info
+            tp_application: '{{ $labels.sourceApplicationName }}'
           annotations:
             summary: "AppMirrorRelationship transfer completed"
             description: "AppMirrorRelationship {{ $labels.amr_name }} transferred snapshot {{ $labels.lastTransferredSnapshotName }} successfully."

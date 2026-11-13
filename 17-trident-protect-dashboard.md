@@ -6,12 +6,13 @@ Custom dashboard สำหรับดูสถานะ Trident Protect: Backup
 
 ## ไฟล์ dashboard
 
-| ไฟล์ | ใช้กับ | ลิงก์ Open Prometheus |
-|---|---|---|
-| `17-trident-protect-dashboard.json` | `k8s-clus1` | `http://10.10.110.111:9090` |
-| `17-trident-protect-dashboard-clus2.json` | `k8s-clus2` | `http://10.10.110.121:9090` |
+| ไฟล์ | ใช้กับ |
+|---|---|
+| `17-trident-protect-dashboard.json` | `k8s-clus1` หรือ production |
+| `17-trident-protect-dashboard-clus2.json` | `k8s-clus2` หรือ production |
 
-สองไฟล์เนื้อหาเหมือนกันทุกอย่าง ต่างกันแค่ URL ของ Prometheus
+สองไฟล์เนื้อหาเหมือนกัน เลือก Prometheus datasource ของ environment ที่ต้องการใน dashboard
+ไม่มีปุ่ม Open Prometheus ที่ผูกกับ IP ของ lab แล้ว ส่วนลิงก์ Explore ภายใน Grafana ยังคงอยู่
 
 ```text
 title   = Trident Protect Overview
@@ -159,7 +160,7 @@ Dashboards -> New -> Import -> Upload JSON file
 - `creation_time` เป็น label จึงนำมาทำ arithmetic กับเวลาไม่ได้ ใช้ได้แค่เรียงลำดับ
 - panel ที่ไม่มีข้อมูล (เช่น ไม่มี Backup ที่ Error) ใช้ `or vector(0)` เพื่อให้แสดง 0 แทน `No data`
 - คอลัมน์ `Error` และ `Message` ของตาราง AppVaults จะปรากฏเฉพาะเมื่อมี AppVault อยู่ในสถานะ Error เท่านั้น
-- ลิงก์ "Open Prometheus" ชี้ไปที่ external IP ที่ MetalLB จ่าย ถ้า Service ถูกสร้างใหม่และได้ IP อื่น ต้องแก้ในไฟล์นี้แล้ว import ใหม่
+- ไม่มี external Prometheus URL ฝังใน dashboard; ใช้ datasource ที่เลือกและลิงก์ Explore ภายใน Grafana
 
 ## หมายเหตุการแก้ไขรอบแรก
 

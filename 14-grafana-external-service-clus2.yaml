@@ -1,0 +1,21 @@
+# Grafana external access on cluster 2; managed separately from Helm.
+# MetalLB lab example: for another LB provider, remove/replace its annotation.
+# If using Ingress instead, skip this file and route to the internal my-grafana Service.
+# If the Helm release name changes, update app.kubernetes.io/instance below.
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-external
+  namespace: grafana
+  annotations:
+    metallb.io/address-pool: ai-pool
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: my-grafana
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+      protocol: TCP

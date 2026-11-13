@@ -1,6 +1,6 @@
 # 19 - Alertmanager และ Email Alert
 
-Status: TESTED
+Status: เคยทดสอบใน lab; การแก้ grouping/templates ล่าสุดยังไม่ได้ทดสอบส่ง email
 
 คลัสเตอร์ : `k8s-clus1`
 namespace : `prometheus` (Alertmanager, Prometheus, PrometheusRule), `mailpit` (Mailpit)
@@ -19,9 +19,11 @@ namespace : `prometheus` (Alertmanager, Prometheus, PrometheusRule), `mailpit` (
 | `19-alertmanager.yaml` | ServiceAccount + Alertmanager CR |
 | `19-alertmanager-external-service.yaml` | เปิด Alertmanager UI ผ่าน MetalLB |
 | `08-prometheus-alert.yaml` | Prometheus CR ที่เปิด `alerting` และ `ruleSelector` |
-| `20-alert-rules.yaml` | PrometheusRule ของ Backup, Snapshot และ AppVault |
+| `20-alert-rules.yaml` | PrometheusRule: Backup, Snapshot, AppVault, AMR |
 
 ## 1. ติดตั้ง Mailpit
+
+เฉพาะ lab เท่านั้น หาก production ใช้ SMTP จริง ให้ข้ามขั้นนี้และตั้ง relay/TLS/credentials ก่อนขั้นที่ 2
 
 ```bash
 kubectl apply -f 21-mailpit.yaml
@@ -72,6 +74,9 @@ kubectl -n prometheus get alertmanager alertmanager -o wide
 ```
 
 ## 4. เปิด Alertmanager UI ผ่าน MetalLB
+
+ขั้นนี้เป็นทางเลือกสำหรับ lab; production ที่ใช้ LB อื่นต้องปรับ annotation หรือใช้ Ingress/private access แทน
+ไม่จำเป็นต่อการส่ง email และ templates ปัจจุบันไม่มีปุ่ม/ลิงก์กลับ Alertmanager
 
 ```bash
 kubectl apply -f 19-alertmanager-external-service.yaml
@@ -257,7 +262,6 @@ kubectl -n prometheus create secret generic smtp-credentials \
 replicas: 3                 HA
 storage:                    alert และ silence ไม่หายเมื่อ pod restart
 retention: 120h             เก็บประวัติย้อนหลังได้นานขึ้น
-externalUrl:                ลิงก์ในอีเมลชี้ถูกที่
 web.tlsConfig:              เปิด UI ผ่าน HTTPS
 ```
 
@@ -302,28 +306,30 @@ service = trident-protect-kube-state-metrics
 บวกกับ label `conditions` ของ AppMirrorRelationship ที่ยาวราว 2 KB
 ทำให้อีเมลใหญ่มากและอ่านยาก
 
-### แจ้งเตือนเฉพาะรอบปัจจุบัน
+### แยก email ตามเหตุการณ์ namespace และ application
 
-อีเมลแบบ default ของ Alertmanager จะสะสม alert ที่ผ่านมาแล้วไว้ในกลุ่มเดียวกัน
-ทำให้ทุกฉบับมีประวัติของรอบก่อน ๆ ติดมาด้วย สิ่งที่ทำเพื่อแก้:
+จัดกลุ่มด้วย `alertname`, `cr_namespace`, `tp_application` จึงไม่รวมคนละ namespace/application
+Backup/Snapshot ใช้ `appReference` ส่วน AMR ใช้ `sourceApplicationName` เป็น application label
+Completed rules ยังอาศัย history ย้อนหลัง ไม่รับประกันหนึ่ง email ต่อ event หรือแยกแต่ละ schedule round เสมอ
 
 | ที่แก้ | ผล |
 |---|---|
-| `20-alert-rules.yaml` เปลี่ยน `offset 10m` → `offset 5m` | alert อยู่ในสถานะ firing 5 นาทีพอดี เท่ากับรอบของ schedule → firing เหลือ 1 รอบ (3 alerts) แทน 2 รอบ (6 alerts) |
+| `20-alert-rules.yaml` Completed detection | Namespace/UID matching; offset 5m is a detection window, not a schedule requirement. Missing history can repeat old events. |
 | template แสดงเฉพาะ `.Alerts.Firing` | ตัดประวัติของ alert ที่ resolve แล้วออก |
 | แยก route ตาม `severity` | event (`info`) แจ้งเฉพาะรอบปัจจุบัน ส่วนปัญหา (`critical`/`warning`) แจ้งด้วยเมื่อหายแล้ว |
 
 ```yaml
 route:
-  group_by: ['alertname']
+  group_by: ['alertname', 'cr_namespace', 'tp_application']
   group_wait: 30s
-  group_interval: 5m
+  group_interval: 5m  # info route overrides this to 30s
   repeat_interval: 12h
   receiver: email-alert
   routes:
     - receiver: email-event
       matchers:
         - 'severity="info"'
+      group_interval: 30s
 ```
 
 | receiver | ใช้กับ | `send_resolved` | เนื้อหา |
@@ -360,7 +366,6 @@ COMPLETED  custom-f91a1-20261113043500
    Status     Completed
    Time       13/11/2026 11:35
 
-View all: http://10.10.110.114:9093/#/alerts?receiver=email-event
 ```
 
 ปัญหาที่เกิดแล้วหาย
@@ -378,7 +383,6 @@ CLEARED  zz-recover-test
    Time       13/11/2026 11:40
    Error      Failed to create snapshot: bucket unreachable
 
-View all: http://10.10.110.114:9093/#/alerts?receiver=email-alert
 ```
 
 Subject: `[Trident Protect] Snapshot completed - 3 events`
@@ -449,7 +453,7 @@ kube_customresource_app_mirror_relationship_info   cr_namespace = demo203
 | จำนวน firing ที่แสดง | สูงสุด 20 รายการ |
 | จำนวน resolved ที่แสดง | สูงสุด 3 รายการ (เฉพาะ receiver `email-alert`) |
 | ลำดับ | firing อยู่ก่อน resolved เสมอ |
-| Subject | `[Trident Protect] {{ summary }} - {{ count }} event(s)` |
+| Subject | `[Trident Protect][firing/resolved] namespace | application | summary - count events` |
 
 ### ข้อควรระวัง
 
@@ -457,13 +461,13 @@ kube_customresource_app_mirror_relationship_info   cr_namespace = demo203
 |---|---|
 | template เขียนซ้ำ 2 ชุด | receiver ทั้งสองใช้ template เดียวกันแต่ YAML block scalar ใช้ anchor ไม่ได้ จึงต้องเขียนซ้ำในไฟล์เดียว **ต้องแก้ให้ตรงกันทั้งสองชุด** |
 | `send_resolved` ไม่ได้ตัดเนื้อหาอีเมล | flag นี้แค่ไม่ trigger การแจ้งเตือนตอน alert resolve เท่านั้น template ยังได้รับทั้ง firing และ resolved เสมอ ต้องซ่อนใน template เอง |
-| `offset` ต้องเท่ากับรอบของ schedule | ถ้า schedule ทุก 10 นาที ต้องใช้ `offset 10m` มิฉะนั้นอีเมลจะรวมหลายรอบไว้ด้วยกัน |
-| alert มีชีวิตสั้นลง | หลังลด `offset` เหลือ 5 นาที alert จะอยู่ได้ 5 นาที (~20 รอบ evaluate ที่ scrape ทุก 15 วินาที) ต้องไม่ให้ Prometheus restart ในช่วงนั้น |
+| Completed detection | เทียบข้อมูลกับ 5 นาทีก่อนตาม namespace/UID ไม่ใช่อายุจาก completion timestamp; offset ไม่จำเป็นต้องเท่ากับ schedule และ history ขาดอาจแจ้งข้อมูลเก่าซ้ำ |
+| รอบประเมินและ history | scrape interval ไม่ใช่ evaluation interval; ต้องทดสอบ notification batching และ restart/history gaps ก่อนใช้ production |
 | ไม่มีเลขกำกับ | Alertmanager 0.34.2 ไม่มีฟังก์ชันบวกลบ (`add`/`sub`) ใน template จึงข้ามเลขกำกับ |
 | `amtool check-config` ไม่ตรวจ inline template | ตรวจได้แค่ schema ของ config ส่วน `text:` และ `html:` จะ parse ตอนส่งอีเมลเท่านั้น ต้องทดสอบด้วยอีเมลจริง |
 | นับ `{{ end }}` ให้ครบ | template ที่ซับซ้อนมีโอกาสเพิ่ม `{{ end }}` เกิน ทำให้ Alertmanager ตอบ error ตอนส่งอีเมล ไม่ใช่ตอนโหลด config |
 | ช่อง Error อาจไม่มีค่า | label `error` ถูก KSM ตัดทิ้งเมื่อค่าว่าง ตอนนี้ใน cluster ยังไม่มี CR ที่ error จึงยังไม่เห็นค่าในช่องนี้ |
-| ลิงก์ View all ชี้ URL ภายใน | ตั้ง `spec.externalUrl` ใน `19-alertmanager.yaml` เป็น `http://10.10.110.114:9093` (IP ที่ MetalLB จ่ายให้ `alertmanager-external`) ถ้า Service ถูกลบแล้วสร้างใหม่อาจได้ IP อื่น |
+| ลิงก์กลับ Alertmanager | เอาออกจากทั้ง text/HTML แล้ว จึงไม่กำหนด externalUrl ใน CR |
 | ทดสอบ template โดยไม่รอ alert จริง | `amtool alert add --alertmanager.url=http://127.0.0.1:9093 --end=<เวลาในอนาคต> alertname=X key=value` ใน pod แล้วรอ notification (alert ที่แทรกจะหมดอายุเอง) |
 
 ## ข้อควรระวัง
@@ -475,7 +479,7 @@ kube_customresource_app_mirror_relationship_info   cr_namespace = demo203
 | `ruleSelector: {}` | ค่า null จะไม่เลือก PrometheusRule ใดเลย โดยไม่มี error |
 | `ruleNamespaceSelector: {}` | ค่า null (default) เลือกแค่ namespace ตัวเอง |
 | Operator ไม่ auto-configure | `spec.alerting` ต้องตั้งเองเสมอ ไม่มีการค้นหา Alertmanager อัตโนมัติ |
-| `unless ... offset 5m` | ใช้เพื่อแจ้งเฉพาะ backup ที่เพิ่งเกิด ถ้าใช้ expression ตรงๆ จะแจ้งของเก่าทั้งหมดที่ยังอยู่ ค่า offset ต้องเท่ากับรอบของ schedule |
+| `unless ... offset 5m` | ตรวจ series ที่ไม่พบเมื่อ 5 นาทีก่อน; history ขาดอาจแจ้งของเก่าซ้ำ ไม่รับประกันหนึ่ง notification ต่อ event |
 | Mailpit | ใช้ได้เฉพาะ lab ห้ามใช้ใน production |
 
 ## Cleanup

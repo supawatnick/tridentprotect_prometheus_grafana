@@ -9,8 +9,17 @@
 #   Labels     app=controller.csi.trident.netapp.io
 #   Port       metrics = 9220 -> targetPort 8001
 #
-# The Prometheus CR uses serviceMonitorSelector: {} so this ServiceMonitor is
-# picked up automatically.
+# The Prometheus CR selects this ServiceMonitor through the matching
+# monitoring: trident-protect label.
+#
+# ก่อนใช้กับ production ให้ตรวจ Service ของ Trident CSI:
+#   kubectl -n trident get svc -l app=controller.csi.trident.netapp.io -o yaml
+#
+# ดู spec.ports: ถ้ามี name: metrics ใช้ endpoints.port: metrics ด้านล่างได้เลย
+# ถ้าชื่อ port ต่างออกไป ให้แก้ endpoints.port ให้ตรง (ใช้ชื่อ ไม่ใช่เลข port)
+# ถ้าไม่พบ Service ให้ใช้: kubectl get svc -A --show-labels
+# แล้วแก้ namespaceSelector.matchNames และ selector.matchLabels ให้ตรงกับที่พบ
+# หมายเหตุ: ถ้าเลือก https-metrics ต้องตั้ง scheme/TLS เพิ่ม ไม่ใช่เปลี่ยนชื่อ port อย่างเดียว
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -18,7 +27,7 @@ metadata:
   name: trident-sm
   namespace: prometheus
   labels:
-    release: prom-operator
+    monitoring: trident-protect
 spec:
   jobLabel: trident
   selector:

@@ -20,20 +20,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": false,
-      "keepTime": false,
-      "tags": [],
-      "targetBlank": true,
-      "title": "Open Prometheus (k8s-clus2)",
-      "tooltip": "",
-      "type": "link",
-      "url": "http://10.10.110.121:9090"
-    }
-  ],
+  "links": [],
   "liveNow": false,
   "panels": [
     {

@@ -2,7 +2,7 @@
 
 Status: TESTED on `k8s-clus1` with Prometheus Operator `v0.95.1`
 
-Prometheus CR ใน `08-prometheus.yaml` ต้องมี Operator เพื่อสร้าง StatefulSet, Service และ Prometheus pod
+Prometheus CR ใน `08-prometheus-alert.yaml` ต้องมี Operator เพื่อสร้าง StatefulSet, Service และ Prometheus pod
 
 ใช้ Operator version `v0.95.1` ให้ตรงกับ CRD ที่ติดตั้งไว้ ห้ามใช้ `LATEST` เพื่อให้การติดตั้งทำซ้ำได้ผลเดิม
 
@@ -33,7 +33,7 @@ Expected: Operator pod `1/1 Running`
 
 ## Verify Prometheus Reconciliation
 
-ถ้า `08-prometheus.yaml` ถูก apply ไว้แล้ว Operator จะ reconcile ให้อัตโนมัติ
+ถ้า `08-prometheus-alert.yaml` ถูก apply ไว้แล้ว Operator จะ reconcile ให้อัตโนมัติ
 
 ```bash
 kubectl -n prometheus get prometheus prometheus

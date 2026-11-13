@@ -11,7 +11,7 @@ namespace : `grafana`
 
 > ⚠️ PRODUCTION:
 > - เปลี่ยน `storageClassName` เป็น storage class จริงของ cluster
-> - Grafana ไม่มี authentication ติดตั้งมา เมื่อเปิดผ่าน MetalLB ให้จำกัดเครือข่ายที่เข้าถึงได้
+> - ใช้ admin login ตามขั้นตอนด้านล่าง; สำหรับ production ให้กำหนด HTTPS และสิทธิ์เข้าถึงตามนโยบายองค์กร
 > - เปิด persistence ตั้งแต่ครั้งแรก ถ้าเปิดทีหลังข้อมูลเดิมจะหาย
 >
 > ℹ️ `helm install` จะขึ้นคำเตือน `this chart is deprecated` เพราะ chart ย้ายไป OCI registry
@@ -55,7 +55,36 @@ helm install my-grafana grafana/grafana \
 >   -n grafana
 > ```
 
-## 4. ตรวจผล
+## 4. เปิด external access แยกจาก Helm
+
+values ไม่กำหนดส่วน `service` เพื่อใช้ค่า default ของ chart:
+Helm สร้าง Service `my-grafana` แบบ ClusterIP สำหรับใช้ภายใน cluster
+ไฟล์ external ด้านล่างเป็นตัวอย่างสำหรับ MetalLB ใน lab เท่านั้น
+ถ้า production ใช้ LB อื่น ให้ลบ/เปลี่ยน MetalLB annotation ให้ตรงกับผู้ให้บริการ
+ถ้าใช้ Ingress ให้ข้ามไฟล์ external แล้วส่ง traffic ไป Service `my-grafana` แทน
+เลือก apply External Service เพียงไฟล์เดียวตาม cluster:
+
+```bash
+# cluster 1
+kubectl apply -f 14-grafana-external-service-clus1.yaml
+```
+
+```bash
+# cluster 2
+kubectl apply -f 14-grafana-external-service-clus2.yaml
+```
+
+ทั้งสองไฟล์สร้าง Service ชื่อ `grafana-external` แต่ใช้ MetalLB pool ต่างกัน
+ถ้าเปลี่ยนชื่อ Helm release จาก `my-grafana` ต้องแก้ selector `app.kubernetes.io/instance` ในไฟล์ Service ด้วย
+
+ถ้ามี Grafana ติดตั้งแบบ LoadBalancer เดิมอยู่แล้ว ต้อง `helm upgrade` ด้วย values ใหม่ก่อน
+ตรวจ effective values ว่า type เป็น ClusterIP และไม่มี MetalLB annotation เดิมค้างอยู่
+อย่าใช้ `--reuse-values` ที่คงค่า service เดิมไว้
+Service `my-grafana` จะเปลี่ยนเป็น ClusterIP และ IP เดิมอาจถูกคืนให้ MetalLB
+จากนั้น apply External Service และตรวจ IP ใหม่; การย้ายนี้อาจทำให้ external access ขาดช่วง
+ไม่ต้อง uninstall Grafana หรือ PVC
+
+## 5. ตรวจผล
 
 ```bash
 kubectl -n grafana rollout status deployment/my-grafana --timeout=180s
@@ -66,7 +95,8 @@ Expected:
 
 ```text
 pod/my-grafana-...          1/1   Running
-service/my-grafana          LoadBalancer   ...   80:.../TCP
+service/my-grafana          ClusterIP      ...   80/TCP
+service/grafana-external    LoadBalancer   ...   80:.../TCP
 persistentvolumeclaim/my-grafana   Bound   10Gi   RWO   sc-clus1-nfs
 ```
 
@@ -74,7 +104,7 @@ persistentvolumeclaim/my-grafana   Bound   10Gi   RWO   sc-clus1-nfs
 > เพราะ `spec.storageClassName` ของ PVC เป็น immutable field
 > ต้อง `helm uninstall` แล้ว `helm install` ใหม่ (ยังไม่มีข้อมูล Grafana ที่ต้องเก็บ)
 
-## 5. ดึงรหัสผ่าน admin
+## 6. ดึงรหัสผ่าน admin
 
 ```bash
 kubectl -n grafana get secret my-grafana \
@@ -83,10 +113,10 @@ kubectl -n grafana get secret my-grafana \
 
 ผู้ใช้คือ `admin`
 
-## 6. เข้าใช้งาน
+## 7. เข้าใช้งาน
 
 ```bash
-kubectl -n grafana get service my-grafana \
+kubectl -n grafana get service grafana-external \
   -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
 
