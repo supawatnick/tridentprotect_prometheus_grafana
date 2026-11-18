@@ -50,8 +50,8 @@ Dashboards → New → Import → Upload JSON file
 
 เลือกไฟล์ `16-grafana-dashboard.json` แล้วกด `Load`
 
-> ถ้า Grafana ถามให้เลือก data source ให้เลือก `Prometheus` ที่สร้างใน `15-grafana-datasource.md`
-> เพราะ JSON อ้างอิง datasource uid `prometheus`
+> ถ้า Grafana ถามให้เลือก data source ให้เลือก `Trident-Prometheus` ที่สร้างใน `15-grafana-datasource.md`
+> เพราะ dashboard ใช้ตัวแปร `${DS_PROMETHEUS}` ที่กรองตามชื่อ `Trident-Prometheus`
 
 กด `Import`
 
