@@ -11,7 +11,7 @@ Blog: "Add a data source"
 Service ของ Prometheus ที่ Operator สร้างชื่อ `prometheus-operated`
 
 ```bash
-kubectl -n prometheus get service | grep operated
+kubectl -n trident-prometheus get service | grep operated
 ```
 
 Expected:
@@ -31,7 +31,7 @@ Connections → Data sources → Add new data source → Prometheus
 | ช่อง | ค่า |
 |---|---|
 | Name | `Prometheus` |
-| URL | `http://prometheus-operated.prometheus.svc.cluster.local:9090` |
+| URL | `http://prometheus-operated.trident-prometheus.svc.cluster.local:9090` |
 
 กด `Save & test`
 

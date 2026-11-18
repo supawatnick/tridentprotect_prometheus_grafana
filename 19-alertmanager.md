@@ -3,7 +3,7 @@
 Status: เคยทดสอบใน lab; การแก้ grouping/templates ล่าสุดยังไม่ได้ทดสอบส่ง email
 
 คลัสเตอร์ : `k8s-clus1`
-namespace : `prometheus` (Alertmanager, Prometheus, PrometheusRule), `mailpit` (Mailpit)
+namespace : `trident-prometheus` (Alertmanager, Prometheus, PrometheusRule), `mailpit` (Mailpit)
 
 เพิ่มการแจ้งเตือนจาก Prometheus ผ่าน Alertmanager ไปยังอีเมล
 
@@ -58,19 +58,19 @@ kubectl apply -f 19-alertmanager.yaml
 ```
 
 ```bash
-kubectl -n prometheus rollout status statefulset/alertmanager-alertmanager --timeout=300s
+kubectl -n trident-prometheus rollout status statefulset/alertmanager-alertmanager --timeout=300s
 ```
 
 > ชื่อ StatefulSet คือ `alertmanager-<ชื่อ CR>` ซึ่ง Operator ตั้งจาก
 > `prefixedName()` ใน `pkg/alertmanager/statefulset.go`
 > CR ชื่อ `alertmanager` จึงได้ StatefulSet ชื่อ `alertmanager-alertmanager`
 > และ Secret config ที่ Operator สร้างชื่อ `alertmanager-alertmanager-generated`
-> ตรวจจาก `kubectl -n prometheus get statefulset,secret | grep alertmanager`
+> ตรวจจาก `kubectl -n trident-prometheus get statefulset,secret | grep alertmanager`
 
 ตรวจว่า Alertmanager ตั้งค่าแล้ว:
 
 ```bash
-kubectl -n prometheus get alertmanager alertmanager -o wide
+kubectl -n trident-prometheus get alertmanager alertmanager -o wide
 ```
 
 ## 4. เปิด Alertmanager UI ผ่าน MetalLB
@@ -83,7 +83,7 @@ kubectl apply -f 19-alertmanager-external-service.yaml
 ```
 
 ```bash
-kubectl -n prometheus get service alertmanager-external \
+kubectl -n trident-prometheus get service alertmanager-external \
   -o jsonpath='{.status.loadBalancer.ingress[0].ip}{"\n"}'
 ```
 
@@ -151,7 +151,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: pipeline-test
-  namespace: prometheus
+  namespace: trident-prometheus
 spec:
   groups:
     - name: test
@@ -182,7 +182,7 @@ curl -s http://<PROMETHEUS-IP>:9090/api/v1/alerts | jq '.data.alerts[] | {name:.
 ลบ rule ชั่วคราว:
 
 ```bash
-kubectl delete prometheusrule pipeline-test -n prometheus
+kubectl delete prometheusrule pipeline-test -n trident-prometheus
 ```
 
 ### 7.2 ทดสอบด้วย backup จริง
@@ -250,7 +250,7 @@ global:
 สร้าง Secret นอก Git
 
 ```bash
-kubectl -n prometheus create secret generic smtp-credentials \
+kubectl -n trident-prometheus create secret generic smtp-credentials \
   --from-literal=password='<SMTP_PASSWORD>'
 ```
 
@@ -275,7 +275,7 @@ kubectl apply -f 19-alertmanager-config.yaml
 และ config-reloader จะ reload ให้อัตโนมัติภายในประมาณ 1 นาที
 
 ```bash
-kubectl -n prometheus logs alertmanager-alertmanager-0 -c alertmanager --tail=20
+kubectl -n trident-prometheus logs alertmanager-alertmanager-0 -c alertmanager --tail=20
 ```
 
 ต้องไม่มี error และเห็นข้อความ reload config
@@ -297,9 +297,9 @@ customresource_version = v1
 endpoint = http
 instance = 10.244.38.248:8080
 job = kube-state-metrics
-namespace = prometheus
+namespace = trident-prometheus
 pod = trident-protect-kube-state-metrics-558985498c-rzplv
-prometheus = prometheus/prometheus
+prometheus = trident-prometheus/prometheus
 service = trident-protect-kube-state-metrics
 ```
 

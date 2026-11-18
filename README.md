@@ -89,9 +89,11 @@ AppMirrorRelationship replication path.
 
 ## Quick start
 
+The quick start installs the monitoring stack into `trident-prometheus`. If the stack already runs in `prometheus`, plan the cutover before applying these commands. The Operator and Prometheus use fixed cluster-scoped RBAC names, so applying these manifests can repoint existing bindings. Check RBAC ownership, external Service IPs, and any data you need to retain.
+
 ```bash
 export KUBECONFIG=/root/.kube/config
-export NS=prometheus
+export NS=trident-prometheus
 
 # 1. CRDs
 kubectl apply --server-side -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.95.1/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
@@ -169,11 +171,11 @@ Service DNS names use the standard Kubernetes form:
 
 | Service | URL |
 |---|---|
-| Prometheus | `http://prometheus-operated.prometheus.svc.cluster.local:9090` |
+| Prometheus | `http://prometheus-operated.trident-prometheus.svc.cluster.local:9090` |
 | Grafana | `http://my-grafana.grafana.svc.cluster.local` |
-| Alertmanager | `http://alertmanager-operated.prometheus.svc.cluster.local:9093` |
+| Alertmanager | `http://alertmanager-operated.trident-prometheus.svc.cluster.local:9093` |
 | Mailpit | `http://mailpit-http.mailpit.svc.cluster.local:8025` |
-| kube-state-metrics | `http://trident-protect-kube-state-metrics.prometheus.svc.cluster.local:8080` |
+| kube-state-metrics | `http://trident-protect-kube-state-metrics.trident-prometheus.svc.cluster.local:8080` |
 | Trident CSI metrics | `http://trident-csi.trident.svc.cluster.local:9220` |
 
 These names resolve inside the cluster only. From a workstation use the MetalLB address

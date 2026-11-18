@@ -12,8 +12,8 @@ Status: TESTED (`k8s-clus1`, 2026-11-12)
 |---|---|---|---|
 | Grafana | `my-grafana` (ns `grafana`) | `helm install` | `helm uninstall` |
 | Grafana External Service | `grafana-external` (ns `grafana`) | `kubectl apply` ตาม cluster | `kubectl delete -f` ตาม cluster |
-| KSM | `trident-protect` (ns `prometheus`) | `helm install` | `helm uninstall` |
-| Prometheus CR | `prometheus/prometheus` | `kubectl apply` | `kubectl delete -f` |
+| KSM | `trident-protect` (ns `trident-prometheus`) | `helm install` | `helm uninstall` |
+| Prometheus CR | `trident-prometheus/prometheus` | `kubectl apply` | `kubectl delete -f` |
 | Prometheus RBAC | SA + ClusterRole + CRB `prometheus` | `kubectl apply` | `kubectl delete -f` |
 | External Service | `prometheus-external` | `kubectl apply` | `kubectl delete -f` |
 | ServiceMonitor | `trident-sm` | `kubectl apply` | `kubectl delete -f` |
@@ -40,7 +40,7 @@ export KUBECONFIG=/root/.kube/config-clus2
 
 ```bash
 helm list -A
-kubectl -n prometheus get deploy,svc,sa,statefulset,servicemonitor,prometheus
+kubectl -n trident-prometheus get deploy,svc,sa,statefulset,servicemonitor,prometheus
 kubectl -n grafana get deploy,svc,sa,pvc
 kubectl get clusterrole,clusterrolebinding -o name \
   | grep -E '/(prometheus|prometheus-operator|trident-protect-kube-state-metrics)$'
@@ -80,17 +80,17 @@ kubectl -n grafana get pvc,pod,deploy,svc,secret
 ## 2. ถอน kube-state-metrics
 
 ```bash
-helm uninstall trident-protect -n prometheus
+helm uninstall trident-protect -n trident-prometheus
 ```
 
 > ⚠️ **มี Helm release ชื่อ `trident-protect` อยู่ 2 ตัว**
 >
 > | release | namespace | คืออะไร | ต้องลบไหม |
 > |---|---|---|---|
-> | `trident-protect` | `prometheus` | kube-state-metrics ที่เราติดตั้ง | ✅ ลบ |
+> | `trident-protect` | `trident-prometheus` | kube-state-metrics ที่เราติดตั้ง | ✅ ลบ |
 > | `trident-protect` | `trident-protect` | Trident Protect ตัวจริง | ❌ **ห้ามลบ** |
 >
-> คำสั่ง `-n prometheus` เป็นตัวกำหนด namespace จึงปลอดภัย
+> คำสั่ง `-n trident-prometheus` เป็นตัวกำหนด namespace จึงปลอดภัย
 > แต่ถ้าลืมใส่ `-n` จะไปลบ Trident Protect ตัวจริงทันที
 
 ลบ: Deployment, Service, ServiceMonitor, ConfigMap, ServiceAccount, ClusterRole, ClusterRoleBinding
@@ -142,15 +142,15 @@ ServiceAccount + ClusterRole + ClusterRoleBinding `prometheus`
 มาจาก `bundle.yaml` จึงไม่ใช่ Helm release และ `helm uninstall` ลบไม่ได้
 
 ```bash
-kubectl -n prometheus delete deployment/prometheus-operator
+kubectl -n trident-prometheus delete deployment/prometheus-operator
 ```
 
 ```bash
-kubectl -n prometheus delete service/prometheus-operator
+kubectl -n trident-prometheus delete service/prometheus-operator
 ```
 
 ```bash
-kubectl -n prometheus delete serviceaccount/prometheus-operator
+kubectl -n trident-prometheus delete serviceaccount/prometheus-operator
 ```
 
 ```bash
@@ -185,7 +185,7 @@ thanosrulers.monitoring.coreos.com
 ## 6. ถอน namespace
 
 ```bash
-kubectl delete namespace prometheus
+kubectl delete namespace trident-prometheus
 ```
 
 ```bash
@@ -199,7 +199,7 @@ kubectl delete namespace mailpit
 ## 7. ตรวจว่าสะอาด
 
 ```bash
-helm list -n prometheus
+helm list -n trident-prometheus
 ```
 
 ```bash
@@ -220,7 +220,7 @@ kubectl get crd -o name | grep monitoring.coreos.com
 ```
 
 ```bash
-kubectl get ns | grep -E 'prometheus|grafana|mailpit'
+kubectl get ns | grep -E 'trident-prometheus|grafana|mailpit'
 ```
 
 ทั้ง 5 คำสั่งต้องไม่มีผลลัพธ์

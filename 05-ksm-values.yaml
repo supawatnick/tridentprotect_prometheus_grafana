@@ -2,7 +2,7 @@
 #
 # ใช้กับ (คำสั่งตามบทความ):
 #   helm install trident-protect -f 05-ksm-values.yaml \
-#     prometheus-community/kube-state-metrics --version 5.21.0 -n prometheus
+#     prometheus-community/kube-state-metrics --version 5.21.0 -n trident-prometheus
 #
 # บทความ: "Install and configure kube-state-metrics" (metrics-config-backup-snapshot-hooks.yaml)
 #          + "AppVault metrics and error details" + "AppMirrorRelationship metrics"
@@ -19,13 +19,13 @@
 #    ที่เพิ่มเข้ามาคือ label `cr_namespace` = namespace จริงของ CR
 #    ใช้ในอีเมลแจ้งเตือนและใช้กรอง dashboard ได้
 #    ⚠️ ห้ามใช้ชื่อ label `namespace` — Prometheus Operator จะเติม
-#       label namespace = namespace ของ target (prometheus) ทับค่านั้นเสมอ
+#       label namespace = namespace ของ target (trident-prometheus) ทับค่านั้นเสมอ
 #       ดูเหตุผลใน 19-alertmanager.md หัวข้อ "รูปแบบอีเมล"
 #
 #    หลังแก้ไฟล์นี้ต้อง restart kube-state-metrics เพราะมันอ่าน config ตอน startup
 #       helm upgrade trident-protect prometheus-community/kube-state-metrics \
-#         -f 05-ksm-values.yaml --version 9.0.0 -n prometheus
-#       kubectl -n prometheus rollout restart deployment/trident-protect-kube-state-metrics
+#         -f 05-ksm-values.yaml --version 9.0.0 -n trident-prometheus
+#       kubectl -n trident-prometheus rollout restart deployment/trident-protect-kube-state-metrics
 # ---------------------------------------------------------------------------
 # จุดที่แก้จากตัวอย่างในเอกสาร/บล็อก
 #

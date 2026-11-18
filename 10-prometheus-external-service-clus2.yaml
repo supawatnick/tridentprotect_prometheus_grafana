@@ -12,7 +12,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-external
-  namespace: prometheus
+  namespace: trident-prometheus
   annotations:
     metallb.io/address-pool: ai-pool
 spec:

@@ -25,7 +25,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: trident-sm
-  namespace: prometheus
+  namespace: trident-prometheus
   labels:
     monitoring: trident-protect
 spec:

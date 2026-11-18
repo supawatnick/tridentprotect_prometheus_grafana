@@ -7,7 +7,7 @@
 # ถ้าไฟล์นี้มีแค่ alerting กับ ruleSelector ฟิลด์อื่นที่อยู่ใน last-applied เดิม
 # (scrapeInterval, serviceMonitorSelector ...) จะถูกลบออกไป
 #
-# namespace : prometheus
+# namespace : trident-prometheus
 #
 # ⚠️ ลำดับสำคัญ: ต้อง apply ไฟล์นี้หลัง 19-alertmanager.yaml
 #    ถ้า apply 08-prometheus.yaml ทีหลังจะทำให้ alerting และ ruleSelector หายไป
@@ -24,7 +24,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
   name: prometheus
-  namespace: prometheus
+  namespace: trident-prometheus
 spec:
   serviceAccountName: prometheus
   scrapeInterval: 15s
@@ -50,7 +50,7 @@ spec:
   # ───────────────────────────────────────────────────────────────────────────
   alerting:
     alertmanagers:
-      - namespace: prometheus
+      - namespace: trident-prometheus
         name: alertmanager-operated
         port: web
         scheme: http
