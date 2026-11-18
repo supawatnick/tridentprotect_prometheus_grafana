@@ -11,7 +11,7 @@ Custom dashboard สำหรับดูสถานะ Trident Protect: Backup
 | `17-trident-protect-dashboard.json` | `k8s-clus1` หรือ production |
 | `17-trident-protect-dashboard-clus2.json` | `k8s-clus2` หรือ production |
 
-สองไฟล์เนื้อหาเหมือนกัน เลือก Prometheus datasource ของ environment ที่ต้องการใน dashboard
+สองไฟล์เนื้อหาเหมือนกัน ใช้ datasource ชื่อ `Trident-Prometheus` ของแต่ละ environment
 ไม่มีปุ่ม Open Prometheus ที่ผูกกับ IP ของ lab แล้ว ส่วนลิงก์ Explore ภายใน Grafana ยังคงอยู่
 
 ```text
@@ -27,7 +27,7 @@ time    = now-24h -> now
 
 | ตัวแปร | ชนิด | ค่า | ใช้กับ |
 |---|---|---|---|
-| `DS_PROMETHEUS` | datasource | `prometheus` | ทุก panel ตอน import จะถามเลือก datasource |
+| `DS_PROMETHEUS` | datasource | `prometheus` | กรอง datasource ชื่อ `Trident-Prometheus` |
 | `app` | query | `label_values({__name__=~"kube_customresource_(backup|snapshot)_info"}, appReference)` | กรอง panel Backup/Snapshot — เลือกได้หลายค่า + All |
 | `amr` | query | `label_values(kube_customresource_app_mirror_relationship_info, amr_name)` | กรอง panel AMR — เลือกได้หลายค่า + All |
 | `vault` | query | `label_values(kube_customresource_appvault_info, appvault_name)` | กรอง panel AppVault — เลือกได้หลายค่า + All |
@@ -130,7 +130,7 @@ Dashboards -> New -> Import -> Upload JSON file
 
 เลือกไฟล์ `17-trident-protect-dashboard.json` แล้วกด `Load`
 
-> ถ้า Grafana ถามให้เลือก data source ให้เลือก `Prometheus` ที่สร้างไว้ใน `15-grafana-datasource.md`
+> ถ้า Grafana ถามให้เลือก data source ให้เลือก `Trident-Prometheus` ที่สร้างไว้ใน `15-grafana-datasource.md`
 > เพราะ dashboard ใช้ตัวแปร `${DS_PROMETHEUS}`
 
 กด `Import`

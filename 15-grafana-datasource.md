@@ -30,7 +30,7 @@ Connections → Data sources → Add new data source → Prometheus
 
 | ช่อง | ค่า |
 |---|---|
-| Name | `Prometheus` |
+| Name | `Trident-Prometheus` |
 | URL | `http://prometheus-operated.trident-prometheus.svc.cluster.local:9090` |
 
 กด `Save & test`
@@ -43,7 +43,7 @@ Successfully queried the Prometheus API.
 
 ## 3. ตรวจว่า datasource ใช้งานได้
 
-เปิดเมนู `Drilldown` หรือ `Explore` ใน Grafana แล้วเลือก data source `Prometheus`
+เปิดเมนู `Drilldown` หรือ `Explore` ใน Grafana แล้วเลือก data source `Trident-Prometheus`
 แล้ว query:
 
 ```promql

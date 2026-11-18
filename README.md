@@ -71,7 +71,7 @@ Run the files in this order. Each step has its own verify block.
 | 10 | `10-prometheus-external-service.yaml` | Expose Prometheus through MetalLB |
 | 11 | `13-trident-servicemonitor.yaml` | ServiceMonitor for the Trident CSI metrics |
 | 12 | `14-grafana-install.md`, `14-grafana-values.yaml`, `14-grafana-external-service-clus1.yaml` | Install Grafana, then optionally expose it through a separate Service (use clus2 files on cluster 2) |
-| 13 | `15-grafana-datasource.md` | Add Prometheus as a Grafana data source |
+| 13 | `15-grafana-datasource.md` | Add the `Trident-Prometheus` data source in Grafana |
 | 14 | `16-grafana-dashboard.md`, `16-grafana-dashboard.json` | Import the dashboard from the blog |
 | 15 | `17-trident-protect-dashboard.md`, `17-trident-protect-dashboard.json` | Import the custom dashboard |
 | 16 | `21-mailpit.yaml` | Mailpit, the SMTP target for the alert emails |
@@ -235,8 +235,8 @@ status value Trident Protect uses, and the tag list gained `26.06`.
 - Details: tables for backups, snapshots, AppVaults and replication relationships
 - AppMirrorRelationship detail: transfer timestamps, snapshots, conditions and configuration
 
-Both use the `${DS_PROMETHEUS}` data source variable, so Grafana asks which data source to
-use during import.
+Both use the `${DS_PROMETHEUS}` variable to select the datasource named
+`Trident-Prometheus`.
 
 ## Cleanup
 
