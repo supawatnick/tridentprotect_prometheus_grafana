@@ -37,7 +37,7 @@
 #    19-alertmanager.yaml แล้วอ้างไฟล์แทนค่า password:
 #       smtp_auth_password_file: '/etc/alertmanager/secrets/smtp-credentials/password'
 #    สร้าง Secret นอก Git:
-#       kubectl -n prometheus create secret generic smtp-credentials \
+#       kubectl -n trident-prometheus create secret generic smtp-credentials \
 #         --from-literal=password='<SMTP_PASSWORD>'
 #
 # แก้แล้ว apply อย่างเดียวไม่ต้อง restart pod
@@ -45,14 +45,14 @@
 # และ config-reloader จะ reload ให้อัตโนมัติภายในประมาณ 1 นาที
 # ───────────────────────────────────────────────────────────────────────────
 #
-# namespace : prometheus
+# namespace : trident-prometheus
 # key       : alertmanager.yaml  (ชื่อ key ต้องตรงตามที่ Operator กำหนด)
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: alertmanager-config
-  namespace: prometheus
+  namespace: trident-prometheus
   labels:
     app.kubernetes.io/name: alertmanager
     app.kubernetes.io/instance: alertmanager

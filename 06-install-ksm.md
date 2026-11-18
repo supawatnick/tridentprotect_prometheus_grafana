@@ -19,7 +19,7 @@ helm repo update
 ## Create Namespace
 
 ```bash
-kubectl create namespace prometheus --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace trident-prometheus --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 คำสั่งนี้รันซ้ำได้ ถ้ามี namespace อยู่แล้วผลจะเป็น `unchanged`
@@ -31,7 +31,7 @@ helm install trident-protect \
   -f 05-ksm-values.yaml \
   prometheus-community/kube-state-metrics \
   --version 9.0.0 \
-  -n prometheus
+  -n trident-prometheus
 ```
 
 ## Upgrade (แก้ค่าใน 05-ksm-values.yaml)
@@ -43,11 +43,11 @@ helm upgrade trident-protect \
   -f 05-ksm-values.yaml \
   prometheus-community/kube-state-metrics \
   --version 9.0.0 \
-  -n prometheus
+  -n trident-prometheus
 ```
 
 ```bash
-kubectl -n prometheus rollout status deployment/trident-protect-kube-state-metrics --timeout=180s
+kubectl -n trident-prometheus rollout status deployment/trident-protect-kube-state-metrics --timeout=180s
 ```
 
 โหลด KSM ใหม่ทำให้ scrape gap ประมาณ 10-20 วินาที
@@ -55,8 +55,8 @@ kubectl -n prometheus rollout status deployment/trident-protect-kube-state-metri
 ## Verify
 
 ```bash
-helm status trident-protect -n prometheus
-kubectl -n prometheus get pods,service,servicemonitor
+helm status trident-protect -n trident-prometheus
+kubectl -n trident-prometheus get pods,service,servicemonitor
 ```
 
 Expected:
@@ -77,7 +77,7 @@ kubectl get clusterrole trident-protect-kube-state-metrics \
 ตรวจว่า custom-resource metrics ไม่ถูกส่งซ้ำ (ผลต้องเป็น `1` ทุกบรรทัด):
 
 ```bash
-kubectl -n prometheus port-forward svc/trident-protect-kube-state-metrics 18090:8080 &
+kubectl -n trident-prometheus port-forward svc/trident-protect-kube-state-metrics 18090:8080 &
 curl -s http://127.0.0.1:18090/metrics \
   | grep '^kube_customresource_backup_info' | sort | uniq -c | awk '{print $1}' | sort -u
 ```
@@ -85,7 +85,7 @@ curl -s http://127.0.0.1:18090/metrics \
 ตรวจว่า Prometheus ไม่ตก samples:
 
 ```bash
-kubectl -n prometheus logs prometheus-prometheus-0 -c prometheus --since=1m \
+kubectl -n trident-prometheus logs prometheus-prometheus-0 -c prometheus --since=1m \
   | grep -c "different value but same timestamp"
 ```
 

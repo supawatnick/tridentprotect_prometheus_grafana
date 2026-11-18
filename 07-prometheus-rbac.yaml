@@ -4,7 +4,7 @@
 #   "the Prometheus server needs access to the Kubernetes API to scrape targets.
 #    Therefore, a ServiceAccount is required ... created and bound to a ClusterRole"
 #
-# namespace : prometheus
+# namespace : trident-prometheus
 # Status    : TESTED
 #
 # ⚠️ PRODUCTION:
@@ -17,7 +17,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prometheus
-  namespace: prometheus
+  namespace: trident-prometheus
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -67,4 +67,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus
-  namespace: prometheus
+  namespace: trident-prometheus

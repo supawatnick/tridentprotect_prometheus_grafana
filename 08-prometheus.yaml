@@ -2,7 +2,7 @@
 #
 # บทความ: "Deploy Prometheus" (prometheus.yaml) + "Configure the monitoring tools to work together" (prometheus-ksm.yaml)
 #
-# namespace : prometheus
+# namespace : trident-prometheus
 # Status    : TESTED (`scrapeInterval: 15s` validated by server dry-run)
 #
 # ⚠️ PRODUCTION:
@@ -16,7 +16,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
   name: prometheus
-  namespace: prometheus
+  namespace: trident-prometheus
 spec:
   serviceAccountName: prometheus
   scrapeInterval: 15s

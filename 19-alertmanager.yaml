@@ -5,7 +5,7 @@
 #
 # configSecret ชี้ไปที่ Secret ที่มี key alertmanager.yaml (ไฟล์ 19-alertmanager-config.yaml)
 #
-# namespace : prometheus
+# namespace : trident-prometheus
 #
 # ⚠️ PRODUCTION:
 #   - replicas: 3
@@ -27,7 +27,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: alertmanager
-  namespace: prometheus
+  namespace: trident-prometheus
   labels:
     app.kubernetes.io/name: alertmanager
     app.kubernetes.io/instance: alertmanager
@@ -36,7 +36,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: Alertmanager
 metadata:
   name: alertmanager
-  namespace: prometheus
+  namespace: trident-prometheus
   labels:
     app.kubernetes.io/name: alertmanager
     app.kubernetes.io/instance: alertmanager

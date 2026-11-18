@@ -16,7 +16,7 @@
 #               summary: "Backup failed"
 #               description: "A backup has failed."
 #
-# namespace : prometheus
+# namespace : trident-prometheus
 #
 # ⚠️ PRODUCTION:
 #   - ปรับ `for` ให้เหมาะกับจังหวะการทำ backup ของแต่ละองค์การ
@@ -27,7 +27,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: trident-protect-alerts
-  namespace: prometheus
+  namespace: trident-prometheus
   labels:
     app.kubernetes.io/name: trident-protect
     app.kubernetes.io/instance: alertmanager
